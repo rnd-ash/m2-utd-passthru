@@ -95,6 +95,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <ModuleDefinitionFile>macchina-passthru.def</ModuleDefinitionFile>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /y $(TargetDir)$(ProjectName).dll "C:\Program Files (x86)\macchina\passthru\*"</Command>
@@ -117,7 +118,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <ModuleDefinitionFile>$(ProjectDir)macchina-passthru.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>macchina-passthru.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -155,13 +156,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="commserver.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="j2534_v0404.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="macchina-passthru.h" />
+    <ClInclude Include="macchina-passthru_dll.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="usbcomm.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="commserver.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="macchina-passthru.cpp" />
@@ -171,6 +176,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="usbcomm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="macchina-passthru.def" />

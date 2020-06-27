@@ -13,12 +13,12 @@ class Logger
 private:
 	std::mutex mutex;
 	std::string argFormatToString(const char* fmt, va_list* args);
-	void writeToFile(std::string message);
 public:
 	void logInfo(std::string method, const char* fmt, ...);
 	void logWarn(std::string method, const char* fmt, ...);
 	void logError(std::string method, const char* fmt, ...);
 	void logDebug(std::string method, const char* fmt, ...);
+	void writeToFile(std::string message);
 };
 
 extern Logger LOGGER;

@@ -1,4 +1,4 @@
-LIBRARY   MACCHINA-PASSTHRU
+LIBRARY
 EXPORTS
 	PassThruOpen	@1
 	PassThruClose	@2
