@@ -7,6 +7,7 @@ namespace usbcomm {
 	HANDLE handler;
 	bool connected = false;
 	std::mutex mutex;
+	std::mutex readMutex;
 	COMSTAT com;
 	DWORD errors;
 
@@ -27,7 +28,7 @@ namespace usbcomm {
 			return false;
 		}
 
-		params.BaudRate = CBR_256000;
+		params.BaudRate = CBR_115200;
 		params.ByteSize = 8;
 		params.StopBits = ONESTOPBIT;
 		params.Parity = NOPARITY;
@@ -55,7 +56,7 @@ namespace usbcomm {
 	bool sendMessage(PCMSG* msg) {
 		DWORD written = 0;
 		mutex.lock();
-		if (!WriteFile(handler, msg, sizeof(struct PCMSG), NULL, NULL)) {
+		if (!WriteFile(handler, msg, sizeof(struct PCMSG), &written, NULL)) {
 			DWORD error = GetLastError();
 			LOGGER.logWarn("MACCHINA", "Error writing message! Code %d", (int)error);
 			mutex.unlock();
@@ -65,20 +66,26 @@ namespace usbcomm {
 		return true;
 	}
 
+
 	bool pollMessage(PCMSG* msg) {
-		mutex.lock();
+		DWORD read = 0;
+		readMutex.lock();
 		memset(msg, 0x00, sizeof(struct PCMSG));
 		ClearCommError(handler, &errors, &com);
 		if (com.cbInQue >= sizeof(struct PCMSG)) {
-			ReadFile(handler, &msg, sizeof(struct PCMSG), NULL, NULL);
-			mutex.unlock();
+			ReadFile(handler, msg, sizeof(struct PCMSG), &read, NULL);
+			readMutex.unlock();
+			if (read != sizeof(struct PCMSG)) {
+				LOGGER.logError("MACCHINA LOG", "Missmatch. Want %lu bytes, got %lu", sizeof(PCMSG), read);
+				return false;
+			}
 			if (msg->cmd_id == CMD_LOG) {
 				LOGGER.logInfo("MACCHINA LOG", "%s", msg->args);
 				return false;
 			}
 			return true;
 		}
-		mutex.unlock();
+		readMutex.unlock();
 		return false;
 	}
 

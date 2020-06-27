@@ -2,6 +2,12 @@
 
 #include "pch.h"
 #include "j2534_v0404.h"
+
+#define FIRMWARE_VERSION "0.1.0"
+#define DLL_VERSION "0.1.0"
+#define API_VERSION "04.04"
+
+
 #define DllExport extern "C" long __stdcall
 
 // J2534 Functions

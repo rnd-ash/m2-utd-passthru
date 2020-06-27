@@ -5,9 +5,9 @@
 #include <Arduino.h>
 
 struct PCMSG { // Total 512 bytes
-    uint16_t cmd_id;
+    uint8_t cmd_id;
     uint16_t arg_size;
-    uint16_t args[508];
+    uint8_t args[509];
 };
 
 

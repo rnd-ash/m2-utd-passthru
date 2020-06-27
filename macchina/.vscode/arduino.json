@@ -1,5 +1,5 @@
 {
     "board": "macchina:sam:m2",
-    "port": "COM12",
+    "port": "COM13",
     "sketch": "macchina.ino"
 }

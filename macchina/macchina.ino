@@ -8,10 +8,15 @@ PCMSG comm_msg = {0x00};
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-    SerialUSB.begin(0);
+    SerialUSB.begin(115200);
     pinMode(DS6, OUTPUT);
     pinMode(DS2, OUTPUT);
+    pinMode(DS7_GREEN, OUTPUT);
+    pinMode(DS7_BLUE, OUTPUT);
     digitalWrite(DS2, LOW); // At startup assume no PC
+    digitalWrite(DS6, HIGH);
+    digitalWrite(DS7_GREEN, HIGH);
+    digitalWrite(DS7_BLUE, HIGH);
 }
 
 // the loop function runs over and over again until power down or reset

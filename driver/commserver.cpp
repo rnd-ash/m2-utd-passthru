@@ -107,6 +107,9 @@ namespace commserver {
 	PCMSG d = { 0x00 };
 	
 	DWORD WINAPI CommLoop() {
+		d.arg_size = 500;
+		d.cmd_id = 0x05;
+		usbcomm::sendMessage(&d);
 		while (can_read) {
 			if (usbcomm::pollMessage(&d)) {
 				// TODO Process payloads
