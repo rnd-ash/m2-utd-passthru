@@ -1,6 +1,11 @@
 #include "pc_comm.h"
 
 #include <M2_12VIO.h>
+
+// -- COMMENT IF YOU HAVE A V3 OR OLDER DEVICE --
+#define MACCHINA_V4
+
+
 M2_12VIO M2IO;
 bool connected = false;
 
@@ -30,7 +35,9 @@ float getVoltage() {
   voltage /= 1000;
   voltage=.1795*voltage*voltage-2.2321*voltage+14.596;//calibration curve determined with DSO, assumed good
   //additional correction for M2 V4
+#ifdef MACCHINA_V4
   voltage=-.0168*voltage*voltage+1.003*voltage+1.3199;//calibration curve determined with DMM, assumed good (M2 V4 only!)
+#endif
   return voltage;
 }
 
