@@ -2,6 +2,7 @@
 #include "macchina-passthru.h"
 #include "Logger.h"
 #include "usbcomm.h"
+#include "globals.h"
 
 /*
 http://www.drewtech.com/support/passthru/open.html
@@ -50,9 +51,7 @@ Receive network protocol messages, receive indications, and transmit indications
 Messages will flow through PassThru device to the User Application..
 */
 DllExport PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout) {
-	LOGGER.logInfo("DllExport", "PassThruReadMsgs called");
-	PCMSG m = { 0x02, 100 };
-	usbcomm::sendMessage(&m);
+	//LOGGER.logInfo("DllExport", "PassThruReadMsgs called");
 	return STATUS_NOERROR;
 }
 
@@ -151,5 +150,9 @@ The PassThruIoctl function is a general purpose I/O control function for modifyi
 */
 DllExport PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, void* pInput, void* pOutput) {
 	LOGGER.logInfo("DllExport", "PassThruIOCTL called");
+	// Test - Just copy voltage
+	if (IoctlID == READ_VBATT) {
+		*(unsigned long*)pOutput = globals::getBatVoltage();
+	}
 	return STATUS_NOERROR;
 }

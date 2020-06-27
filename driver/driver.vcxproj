@@ -158,6 +158,7 @@
   <ItemGroup>
     <ClInclude Include="commserver.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="globals.h" />
     <ClInclude Include="j2534_v0404.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="macchina-passthru.h" />
@@ -168,6 +169,7 @@
   <ItemGroup>
     <ClCompile Include="commserver.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="globals.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="macchina-passthru.cpp" />
     <ClCompile Include="pch.cpp">

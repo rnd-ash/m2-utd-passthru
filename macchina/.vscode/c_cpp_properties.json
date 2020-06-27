@@ -8,7 +8,8 @@
                 "C:\\Program Files (x86)\\Arduino\\hardware\\tools\\avr\\**",
                 "C:\\Program Files (x86)\\Arduino\\libraries\\**",
                 "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\variants\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\libraries\\**"
+                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\libraries\\**",
+                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\**"
             ],
             "forcedInclude": [
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"

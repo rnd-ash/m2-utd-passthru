@@ -2,14 +2,17 @@
 #include "commserver.h"
 #include "Logger.h"
 #include "usbcomm.h"
+#include "globals.h"
 
 namespace commserver {
 	HANDLE thread = NULL; // Comm thread
+	HANDLE pingThread = NULL;
 	HANDLE askInitEvent; // Handle for if other threads want to init
 	HANDLE commEvent; // Handle for event from arduino
 	HANDLE exitEvent; // Handle for exiting / closing thread
 	HANDLE closedEvent; // Handle for when thread is closed
 	HANDLE events[20];
+	PCMSG d = { 0x00 };
 	bool can_read = false;
 	int eventCount = 0;
 
@@ -42,9 +45,14 @@ namespace commserver {
 	void CloseCommThread() {
 		LOGGER.logInfo("commserver::CloseCommThread", "Closing comm thread");
 		can_read = false;
+		// Send one more thing to macchina letting it know driver is quitting
+		d.cmd_id = CMD_EXIT;
+		usbcomm::sendMessage(&d);
+
 		WaitForSingleObject(closedEvent, 5000); // Wait for 5 seconds for the thread to terminate
 		CloseHandles();
 		CloseHandle(thread);
+		CloseHandle(pingThread);
 	}
 
 	bool CreateEvents() {
@@ -103,19 +111,56 @@ namespace commserver {
 		return true;
 	}
 
-
-	PCMSG d = { 0x00 };
+	void pingMacchina() {
+		LOGGER.logDebug("MACCHINA-PING", "Pinging device");
+		PCMSG send = { 0x0F };
+		send.cmd_id = CMD_PING;
+		send.arg_size = 0x02;
+		send.args[0] = 0x01;
+		send.args[0] = 0x02;
+		send.args[0] = 0x03;
+		usbcomm::sendMessage(&send);
+	}
 	
+	void processPingResponse(PCMSG *msg) {
+		// Reponse args:
+		// 0-2 = Batter voltage (mV)
+		float bat;
+		memcpy(&bat, &msg->args[0], 4);
+		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV
+		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v", bat);
+	}
+
+	DWORD WINAPI PingLoop() {
+		while (can_read) {
+			pingMacchina();
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		}
+		return 0;
+	}
+
 	DWORD WINAPI CommLoop() {
 		d.arg_size = 500;
 		d.cmd_id = 0x05;
-		usbcomm::sendMessage(&d);
 		while (can_read) {
+			// Message received from Macchina
 			if (usbcomm::pollMessage(&d)) {
+				// Ping - Process and go back to top of loop
+				if (d.cmd_id == CMD_PING) {
+					processPingResponse(&d);
+					continue;
+				}
 				// TODO Process payloads
 				LOGGER.logDebug("COMM_LOOP", "Payload read!");
 			}
 		}
+		return 0;
+	}
+
+	DWORD WINAPI startCommPing(LPVOID lpParm) {
+		LOGGER.logInfo("commserver::startPingComm", "started!");
+		PingLoop();
+		LOGGER.logInfo("commserver::startPingComm", "Exiting!");
 		return 0;
 	}
 
@@ -139,11 +184,16 @@ namespace commserver {
 			}
 			LOGGER.logInfo("commserver::CreateCommThread", "Creating thread");
 			thread = CreateThread(NULL, 0, startComm, NULL, 0, NULL);
+			pingThread = CreateThread(NULL, 0, startCommPing, NULL, 0, NULL);
 			if (thread == NULL) {
-				LOGGER.logError("commserver::CreateCommThread", "Thread could not be created!");
+				LOGGER.logError("commserver::CreateCommThread", "Recv Thread could not be created!");
 				return false;
 			}
-			LOGGER.logInfo("commserver::CreateCommThread", "Thread created!");
+			if (pingThread == NULL) {
+				LOGGER.logError("commserver::CreateCommThread", "Ping Thread could not be created!");
+				return false;
+			}
+			LOGGER.logInfo("commserver::CreateCommThread", "Threads created!");
 		}
 		if (WaitUntilReady("", 3000) != 0) {
 			LOGGER.logInfo("commserver::CreateCommThread", "Macchina is not avaliable!");
