@@ -11,6 +11,12 @@ Passthru API (j2534) Driver for Macchina M2 Under the dash
 * CAN
 * ISO15765
 
+# Requirments
+* Works on Win7+ (x86 and x64) - Windows XP may work, but untested
+* Follow the guide [here](docs.macchina.cc/m2-docs/arduino) to get Arduino IDE setup to receive the arduino sketch
+* Install Visual studio with C++ support in order to build the DLL
+
+
 # Usage
 1. Run installer/install.bat
 2. Compile the driver module, copy the compiled dll to C:\Program Files (x86)\macchina\passthru\
