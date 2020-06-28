@@ -1,4 +1,7 @@
 #include "pc_comm.h"
+#include "can_handler.h"
+#include "channels.h"
+#include <map>
 
 #include <M2_12VIO.h>
 
@@ -8,10 +11,15 @@
 
 M2_12VIO M2IO;
 bool connected = false;
+canbus_handler* h0 = nullptr;
+canbus_handler* h1 = nullptr;
 
 // DS2 - Red LED - Status no connection
 // DS6 - Green LED - Connected!
 
+#define MAX_CHANNELS 10
+channel* channels[MAX_CHANNELS] = {nullptr};
+unsigned long active_channels = 0;
 
 PCMSG comm_msg = {0x00};
 
@@ -41,26 +49,76 @@ float getVoltage() {
   return voltage;
 }
 
+unsigned long lastPing = 0;
 void doPing() {
     comm_msg.cmd_id = CMD_PING;
-    comm_msg.arg_size = 4;
+    comm_msg.arg_size = 8;
     float f = getVoltage();
     memcpy(&comm_msg.args[0], &f, 4);
+    comm_msg.args[4] = active_channels;
     PCCOMM::sendMessage(&comm_msg);
 }
 
-unsigned long lastPing = 0;
+
+void create_channel(uint8_t id) {
+    if (id > MAX_CHANNELS) {
+        PCCOMM::logToSerial("Channel ID too big - cannot create!"); 
+        return;
+    }
+    if (channels[id] != nullptr) {
+        PCCOMM::logToSerial("Cannot create channel. Already in use");
+        return;
+    }
+    channels[id] = new channel(id);
+    active_channels++;
+}
+
+void destroy_channel(uint8_t id) {
+    if (id > MAX_CHANNELS) { 
+        PCCOMM::logToSerial("Channel ID too big - cannot destroy!");
+        return;
+    }
+    if (channels[id] != nullptr) {
+        channels[id]->kill_channel();
+        delete channels[id];
+        channels[id] = nullptr;
+        active_channels--;
+    } else {
+        PCCOMM::logToSerial("Cannot destroy channel. Does not exist");
+    }
+}
+
+void update_channels() { // Tells all channels to check to send data, or to read incomming data
+    for (int i = 0; i < MAX_CHANNELS; i++) {
+        if (channels[i] != nullptr) {
+            channels[i]->update();
+        }
+    }
+}
 
 // the loop function runs over and over again until power down or reset
 void loop() {
     if (PCCOMM::pollMessage(&comm_msg)) {
         lastPing = millis();
         connected = true;
-        if (comm_msg.cmd_id == CMD_PING) {
-            doPing();
-        }
-        if (comm_msg.cmd_id == CMD_EXIT) {
-            connected = false;
+        switch (comm_msg.cmd_id) {
+            case CMD_PING: // Ping request - Read bat voltage
+                doPing();
+                break;
+            case CMD_EXIT: // User space application quit
+                connected = false;
+                break;
+            case CHANNEL_CREATE: // Create a new channel
+                create_channel(comm_msg.args[0]);
+                break;
+            case CHANNEL_DATA: // Send data to a channel
+                break;
+            case CHANNEL_DESTROY: // Destroy a channel
+                destroy_channel(comm_msg.args[0]);
+                break;
+            default: // Unknown??
+                PCCOMM::logToSerial("Unknown Payload CMD: %02X");
+                break;
         }
     }
     
@@ -72,4 +130,5 @@ void loop() {
         digitalWrite(DS6, LOW);
         digitalWrite(DS2, HIGH);
     }
+    update_channels();
 }

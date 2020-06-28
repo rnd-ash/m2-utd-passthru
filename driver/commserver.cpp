@@ -33,7 +33,7 @@ namespace commserver {
 			const clock_t begin_time = clock();
 			while (clock() - begin_time / (CLOCKS_PER_SEC / 1000) <= timeout) {
 				if (usbcomm::OpenPort()) {
-					LOGGER.logError("commserver::Wait", "Macchina ready!");
+					LOGGER.logInfo("commserver::Wait", "Macchina ready!");
 					return 0;
 				}
 			}
@@ -112,7 +112,6 @@ namespace commserver {
 	}
 
 	void pingMacchina() {
-		LOGGER.logDebug("MACCHINA-PING", "Pinging device");
 		PCMSG send = { 0x0F };
 		send.cmd_id = CMD_PING;
 		send.arg_size = 0x02;
@@ -126,9 +125,11 @@ namespace commserver {
 		// Reponse args:
 		// 0-2 = Batter voltage (mV)
 		float bat;
+		uint8_t channel_count;
 		memcpy(&bat, &msg->args[0], 4);
+		channel_count = msg->args[4];
 		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV
-		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v", bat);
+		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v, %d active channels", bat, channel_count);
 	}
 
 	DWORD WINAPI PingLoop() {

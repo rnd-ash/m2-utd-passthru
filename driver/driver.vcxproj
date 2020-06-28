@@ -156,6 +156,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="channel.h" />
     <ClInclude Include="commserver.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="globals.h" />
@@ -164,9 +165,11 @@
     <ClInclude Include="macchina-passthru.h" />
     <ClInclude Include="macchina-passthru_dll.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="protocol_handler.h" />
     <ClInclude Include="usbcomm.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="channel.cpp" />
     <ClCompile Include="commserver.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="globals.cpp" />
@@ -178,6 +181,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="protocol_handler.cpp" />
     <ClCompile Include="usbcomm.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -3,6 +3,10 @@
 #include "Logger.h"
 #include "usbcomm.h"
 #include "globals.h"
+#include "channel.h"
+
+
+char lastError[100];
 
 /*
 http://www.drewtech.com/support/passthru/open.html
@@ -30,7 +34,15 @@ Establish a logical communication channel with the vehicle network (via the Pass
 */
 DllExport PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate, unsigned long* pChannelID) {
 	LOGGER.logInfo("DllExport", "PassThruConnect called");
-	return STATUS_NOERROR;
+	unsigned long id = channels.addChannel(ProtocolID, Flags, Baudrate);
+	if (id == 0) { // Error - copy it to our error buffer
+		strcpy_s(lastError, "No more avaliable channels");
+		return ERR_FAILED;
+	}
+	else { // OK! Copy ID back to app
+		*pChannelID = id;
+		return STATUS_NOERROR;
+	}
 }
 
 /*
@@ -41,8 +53,8 @@ the transmitting of periodic messages and the filtering of receive messages. The
 will be cleared.
 */
 DllExport PassThruDisconnect(unsigned long ChannelID) {
-	LOGGER.logInfo("DllExport", "PassThruDisconnect called");
-	return STATUS_NOERROR;
+	LOGGER.logInfo("DllExport", "PassThruDisconnect called - Channel is %lu", ChannelID);
+	return channels.removeChannel(ChannelID);
 }
 
 /*
@@ -141,6 +153,11 @@ The error string refers to the most recent function call, rather than a specific
 */
 DllExport PassThruGetLastError(char* pErrorDescription) {
 	LOGGER.logInfo("DllExport", "PassThruGetLastError called");
+	if (pErrorDescription == nullptr) {
+		LOGGER.logError("DllExport", "Error description is a null pointer!?");
+		return ERR_NULL_PARAMETER;
+	}
+	memcpy(pErrorDescription, lastError, strlen(lastError));
 	return STATUS_NOERROR;
 }
 

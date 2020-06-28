@@ -13,6 +13,7 @@ namespace usbcomm {
 
 	bool OpenPort() {
 		mutex.lock();
+		// TODO - Allow different COM Ports
 		handler = CreateFile(L"\\\\.\\COM12", GENERIC_READ | GENERIC_WRITE, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 		if (handler == INVALID_HANDLE_VALUE) {
@@ -70,8 +71,8 @@ namespace usbcomm {
 	bool pollMessage(PCMSG* msg) {
 		DWORD read = 0;
 		readMutex.lock();
-		memset(msg, 0x00, sizeof(struct PCMSG));
 		ClearCommError(handler, &errors, &com);
+		memset(msg, 0x00, sizeof(struct PCMSG));
 		if (com.cbInQue >= sizeof(struct PCMSG)) {
 			ReadFile(handler, msg, sizeof(struct PCMSG), &read, NULL);
 			readMutex.unlock();

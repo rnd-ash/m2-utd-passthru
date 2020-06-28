@@ -5,21 +5,29 @@
             "includePath": [
                 "${workspaceRoot}/**",
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\**",
-                "C:\\Program Files (x86)\\Arduino\\hardware\\tools\\avr\\**",
+                "C:\\Program Files (x86)\\Arduino\\hardware\\tools\\**",
                 "C:\\Program Files (x86)\\Arduino\\libraries\\**",
                 "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\variants\\**",
                 "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\libraries\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\**"
+                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\**",
+                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\sam\\1.6.12\\**"
             ],
             "forcedInclude": [
-                "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"
+                "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h",
+                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\variants\\m2\\pins_arduino.h"
             ],
             "intelliSenseMode": "msvc-x64",
             "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.26.28801/bin/Hostx64/x64/cl.exe",
             "cStandard": "c11",
             "cppStandard": "c++17",
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": ""
+            },
             "defines": [
-                "USBCON"
+                "USBCON",
+                "ARDUINO_AVR_UNO",
+                "ARDUINO_ARCH_AVR"
             ]
         }
     ],
