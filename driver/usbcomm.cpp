@@ -7,7 +7,6 @@ namespace usbcomm {
 	HANDLE handler;
 	bool connected = false;
 	std::mutex mutex;
-	std::mutex readMutex;
 	COMSTAT com;
 	DWORD errors;
 
@@ -70,12 +69,12 @@ namespace usbcomm {
 
 	bool pollMessage(PCMSG* msg) {
 		DWORD read = 0;
-		readMutex.lock();
+		mutex.lock();
 		ClearCommError(handler, &errors, &com);
 		memset(msg, 0x00, sizeof(struct PCMSG));
 		if (com.cbInQue >= sizeof(struct PCMSG)) {
 			ReadFile(handler, msg, sizeof(struct PCMSG), &read, NULL);
-			readMutex.unlock();
+			mutex.unlock();
 			if (read != sizeof(struct PCMSG)) {
 				LOGGER.logError("MACCHINA LOG", "Missmatch. Want %lu bytes, got %lu", sizeof(PCMSG), read);
 				return false;
@@ -86,7 +85,7 @@ namespace usbcomm {
 			}
 			return true;
 		}
-		readMutex.unlock();
+		mutex.unlock();
 		return false;
 	}
 

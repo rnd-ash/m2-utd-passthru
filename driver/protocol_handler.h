@@ -7,6 +7,7 @@ public:
 	explicit protocol_handler(unsigned long channelID);
 	void setFlags(unsigned long flags);
 	void setBaud(unsigned long baud);
+	unsigned long getBaud();
 protected:
 	unsigned long id;
 	unsigned long baud;

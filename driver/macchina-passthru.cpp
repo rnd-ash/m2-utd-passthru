@@ -73,7 +73,7 @@ Transmit network protocol messages over an existing logical communication channe
 */
 DllExport PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout) {
 	LOGGER.logInfo("DllExport", "PassThruWriteMsgs called");
-	return STATUS_NOERROR;
+	return channels.send_payload(ChannelID, pMsg, pNumMsgs, Timeout);
 }
 
 /*

@@ -20,6 +20,12 @@ unsigned long channel_group::addChannel(unsigned long ProtocolID, unsigned long 
             LOGGER.logError("CHAN_GROUP", "Error setting channel baudrate!");
             return 0;
         }
+        // Now channel is setup here, deploy on the Macchina!
+        if (!c.setMacchinaChannel()) {
+            LOGGER.logError("CHAN_GROUP", "Error deploying channel on macchina!");
+            return 0;
+        }
+
         this->channels.emplace(std::make_pair(chanid, c));
         LOGGER.logDebug("CHAN_GROUP", "Created channel OK. Id is %lu", chanid);
     }
@@ -51,6 +57,19 @@ unsigned long channel_group::getFreeChannelID()
     return 0;
 }
 
+int channel_group::send_payload(unsigned long channel_id, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long timeout)
+{
+    channel* chan = getChannelWithID(channel_id);
+    if (chan == nullptr) {
+        return ERR_INVALID_CHANNEL_ID;
+    }
+    LOGGER.logInfo("CHAN_SEND", "Sending %lu messages to channel %lu", *pNumMsgs, channel_id);
+    for (unsigned long i = 0; i < *pNumMsgs; i++) {
+        chan->sendPayload(&pMsg[i]);
+    }
+    return STATUS_NOERROR;
+}
+
 channel* channel_group::getChannelWithID(unsigned long id)
 {
     try {
@@ -66,31 +85,30 @@ channel_group channels = channel_group();
 channel::channel(unsigned long id)
 {
     this->id = id;
-    PCMSG m = {
-        CHANNEL_CREATE,
-        4,
-    };
-    m.args[0] = this->id;
-    usbcomm::sendMessage(&m);
+    this->macchinaProtocolID = 0x00;
 }
 
 bool channel::setProtocol(unsigned long ProtocolID)
 {
+
     switch (ProtocolID) {
     case ISO15765:
         this->handler = new iso15765_handler(this->id);
-        return true;
+        this->macchinaProtocolID = PROTOCOL_ISO15765;
+        break;
     case ISO9141:
         this->handler = new iso9141_handler(this->id);
-        return true;
+        this->macchinaProtocolID = PROTOCOL_ISO9141;
+        break;
     case CAN:
         this->handler = new can_handler(this->id);
-        return true;
+        this->macchinaProtocolID = PROTOCOL_CAN;
+        break;
     default:
         LOGGER.logError("CHAN_PROT", "Unsupported protocol %lu", ProtocolID);
-        break;
+        return false;
     }
-    return false;
+    return true;
 }
 
 bool channel::setFlags(unsigned long Flags)
@@ -111,11 +129,44 @@ bool channel::setBaud(unsigned long Baudrate)
     return true;
 }
 
+bool channel::setMacchinaChannel()
+{
+    // Paylaod args format
+    // 0 - Channel ID
+    // 1 - Protocol ID
+    // 2-6 - Baud rate of channel
+    PCMSG m = {
+        CMD_CHANNEL_CREATE,
+        6,
+        (uint8_t)this->id,
+        this->macchinaProtocolID
+    };
+    m.arg_size = 6;
+    unsigned long baud = handler->getBaud();
+    memcpy(&m.args[2], &baud, 4);
+    return usbcomm::sendMessage(&m);
+}
+
+int channel::sendPayload(PASSTHRU_MSG* msg)
+{
+    // Cannot send enough data
+    if (msg->DataSize > 508) {
+        return ERR_BUFFER_FULL;
+    }
+    PCMSG m = { 0x00 };
+    m.arg_size = msg->DataSize + 1; // +1 for channel ID
+    m.cmd_id = CMD_CHANNEL_DATA; // Sending data
+    m.args[0] = (uint8_t)this->id;
+    memcpy(&m.args[1], msg->Data, msg->DataSize);
+    usbcomm::sendMessage(&m);
+    return 0;
+}
+
 void channel::removeChannel()
 {
     PCMSG m = {
-        CHANNEL_DESTROY,
-        4,
+        CMD_CHANNEL_DESTROY,
+        1,
     };
     m.args[0] = this->id;
     usbcomm::sendMessage(&m);

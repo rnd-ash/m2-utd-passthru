@@ -30,6 +30,7 @@ namespace PCCOMM {
 #define CHANNEL_DESTROY    0x05 // Killing a channel
 #define CHANNEL_IOCTL_REQ  0x06 // IOCTL request to device
 #define CHANNEL_IOCTL_RESP 0x07 // IOCTL Response from device
+#define CMD_CHANNEL_SETTING    0x08 // Modify a setting for the channel
 
 #define CMD_EXIT 0xFF // If sent, device will reset itself back into default state (Assume use app has quit)
 

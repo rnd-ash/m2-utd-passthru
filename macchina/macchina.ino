@@ -11,8 +11,6 @@
 
 M2_12VIO M2IO;
 bool connected = false;
-canbus_handler* h0 = nullptr;
-canbus_handler* h1 = nullptr;
 
 // DS2 - Red LED - Status no connection
 // DS6 - Green LED - Connected!
@@ -60,8 +58,8 @@ void doPing() {
 }
 
 
-void create_channel(uint8_t id) {
-    if (id > MAX_CHANNELS) {
+void create_channel(uint8_t id, uint8_t protocol, unsigned long baud) {
+    if (id > MAX_CHANNELS-1) {
         PCCOMM::logToSerial("Channel ID too big - cannot create!"); 
         return;
     }
@@ -69,7 +67,7 @@ void create_channel(uint8_t id) {
         PCCOMM::logToSerial("Cannot create channel. Already in use");
         return;
     }
-    channels[id] = new channel(id);
+    channels[id-1] = new channel(id, protocol, baud);
     active_channels++;
 }
 
@@ -78,10 +76,10 @@ void destroy_channel(uint8_t id) {
         PCCOMM::logToSerial("Channel ID too big - cannot destroy!");
         return;
     }
-    if (channels[id] != nullptr) {
-        channels[id]->kill_channel();
+    if (channels[id-1] != nullptr) {
+        channels[id-1]->kill_channel();
         delete channels[id];
-        channels[id] = nullptr;
+        channels[id-1] = nullptr;
         active_channels--;
     } else {
         PCCOMM::logToSerial("Cannot destroy channel. Does not exist");
@@ -96,7 +94,18 @@ void update_channels() { // Tells all channels to check to send data, or to read
     }
 }
 
+void channel_send_data(uint8_t channelID, uint8_t* data, uint16_t len) {
+    PCCOMM::logToSerial("Channel sending data");
+    if (channels[channelID-1] != nullptr) {
+        PCCOMM::logToSerial("Channel sending data");
+        channels[channelID-1]->transmit_data(len, data);
+    }  else {
+        PCCOMM::logToSerial("Cannot trasmit data on channel. Does not exist");
+    }
+}
+
 // the loop function runs over and over again until power down or reset
+unsigned long l; // Temp buffer;
 void loop() {
     if (PCCOMM::pollMessage(&comm_msg)) {
         lastPing = millis();
@@ -109,15 +118,17 @@ void loop() {
                 connected = false;
                 break;
             case CHANNEL_CREATE: // Create a new channel
-                create_channel(comm_msg.args[0]);
+                memcpy(&l, &comm_msg.args[2], 4);
+                create_channel(comm_msg.args[0], comm_msg.args[1], l);
                 break;
             case CHANNEL_DATA: // Send data to a channel
+                //channel_send_data(comm_msg.args[0], &comm_msg.args[1], comm_msg.arg_size-1);
                 break;
             case CHANNEL_DESTROY: // Destroy a channel
                 destroy_channel(comm_msg.args[0]);
                 break;
             default: // Unknown??
-                PCCOMM::logToSerial("Unknown Payload CMD: %02X");
+                PCCOMM::logToSerial("Unknown Payload CMD");
                 break;
         }
     }

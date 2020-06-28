@@ -123,18 +123,19 @@ namespace commserver {
 	
 	void processPingResponse(PCMSG *msg) {
 		// Reponse args:
-		// 0-2 = Batter voltage (mV)
+		// 0-3 = Batter voltage (mV)
+		// 4 - Current number of channels open
 		float bat;
-		uint8_t channel_count;
 		memcpy(&bat, &msg->args[0], 4);
-		channel_count = msg->args[4];
-		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV
+		uint8_t channel_count = msg->args[4];
+		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV (Macchina sends it in V)
 		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v, %d active channels", bat, channel_count);
 	}
 
 	DWORD WINAPI PingLoop() {
 		while (can_read) {
 			pingMacchina();
+			// Ping every second, so sleep here
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
 		return 0;
@@ -147,12 +148,11 @@ namespace commserver {
 			// Message received from Macchina
 			if (usbcomm::pollMessage(&d)) {
 				// Ping - Process and go back to top of loop
-				if (d.cmd_id == CMD_PING) {
+				if (d.cmd_id == CMD_PING) { // Its a ping message!
 					processPingResponse(&d);
 					continue;
 				}
 				// TODO Process payloads
-				LOGGER.logDebug("COMM_LOOP", "Payload read!");
 			}
 		}
 		return 0;

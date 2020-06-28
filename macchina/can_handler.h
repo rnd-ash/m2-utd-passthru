@@ -19,4 +19,7 @@ private:
     uint8_t actLED;
 };
 
+extern canbus_handler *h0;
+extern canbus_handler *h1;
+
 #endif

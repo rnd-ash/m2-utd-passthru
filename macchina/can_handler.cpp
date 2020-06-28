@@ -1,17 +1,21 @@
 #include "can_handler.h"
-
+#include "pc_comm.h"
 
 canbus_handler::canbus_handler(uint8_t id, uint32_t baud) {
     switch(id) {
         case 0:
+         PCCOMM::logToSerial("Setting up Can0");
             this->actLED = CAN0_LED;
             this->can = &Can0;
-            this->can->set_baudrate(baud);
+            this->can->begin(baud);
+            PCCOMM::logToSerial("Done");
             break;
         case 1:
+            PCCOMM::logToSerial("Setting up Can1");
             this->actLED = CAN1_LED;
             this->can = &Can1;
-            this->can->set_baudrate(baud);
+            this->can->begin(baud);
+            PCCOMM::logToSerial("Done");
             break;
         default:
             break;
@@ -35,3 +39,6 @@ bool canbus_handler::read(CAN_FRAME *f) {
         digitalWrite(this->actLED, HIGH);
     }
 }
+
+extern canbus_handler *h0 = nullptr;
+extern canbus_handler *h1 = nullptr;
