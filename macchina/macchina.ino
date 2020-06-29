@@ -122,7 +122,7 @@ void loop() {
                 create_channel(comm_msg.args[0], comm_msg.args[1], l);
                 break;
             case CHANNEL_DATA: // Send data to a channel
-                //channel_send_data(comm_msg.args[0], &comm_msg.args[1], comm_msg.arg_size-1);
+                channel_send_data(comm_msg.args[0], &comm_msg.args[1], comm_msg.arg_size-1);
                 break;
             case CHANNEL_DESTROY: // Destroy a channel
                 destroy_channel(comm_msg.args[0]);
@@ -141,5 +141,9 @@ void loop() {
         digitalWrite(DS6, LOW);
         digitalWrite(DS2, HIGH);
     }
+    // Turn off Act LEDs (Will turn back on on next message Tx/Rx)
+    digitalWrite(DS3, HIGH); // Can 0
+    digitalWrite(DS4, HIGH); // Can 1
+    digitalWrite(DS5, HIGH); // K-Line
     update_channels();
 }

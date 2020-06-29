@@ -98,10 +98,7 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
         f.data.byte[0] = len-4;
         f.length = 8; // Always for ISO15765
         memcpy(&f.data.bytes[1], &args[4], len-4);
-        //this->can_handle->transmit(&f);
-        char buf[30] = {0x00};
-        sprintf(buf, "Sent frame with ID %04X", f.id);
-        PCCOMM::logToSerial(buf);
+        this->can_handle->transmit(&f);
     } else {
         // TODO Multi-frame packets
     }

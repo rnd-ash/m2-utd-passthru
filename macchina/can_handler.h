@@ -3,6 +3,7 @@
 #ifndef CANBUS_H
 #define CANBUS_H
 
+#include "variant.h"
 #include <due_can.h>
 
 #define CAN0_LED DS3 // CAN 0 LED - On if send or receive data
@@ -15,7 +16,8 @@ public:
     void transmit(CAN_FRAME *f);
     bool read(CAN_FRAME *f);
 private:
-    CANRaw* can;
+    CANRaw getIface();
+    bool useCan1;
     uint8_t actLED;
 };
 
