@@ -128,7 +128,7 @@ DllExport PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterTy
 	if (!usbcomm::isConnected()) {
 		return ERR_DEVICE_NOT_CONNECTED;
 	}
-	return STATUS_NOERROR;
+	return channels.setFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pFilterID);
 }
 
 /*
@@ -140,7 +140,7 @@ DllExport PassThruStopMsgFilter(unsigned long ChannelID, unsigned long FilterID)
 	if (!usbcomm::isConnected()) {
 		return ERR_DEVICE_NOT_CONNECTED;
 	}
-	return STATUS_NOERROR;
+	return channels.remove_filter(ChannelID, FilterID);
 }
 
 /*

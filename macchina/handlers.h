@@ -5,6 +5,16 @@
 
 #include "can_handler.h"
 
+#define MAX_FILTERS_PER_HANDLER 10
+
+struct handler_filter {
+    uint8_t id;
+    uint8_t type;
+    uint32_t mask;
+    uint32_t filter;
+    uint32_t flow;
+};
+
 /**
  * Handlers for various protocol - Base class
  */
@@ -14,8 +24,10 @@ public:
     virtual void update() = 0;
     virtual void destroy() = 0;
     virtual void transmit(uint8_t* args, uint16_t len) = 0;
+    void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
+    void destroy_filter(uint8_t id);
 private:
-
+    handler_filter* filters[MAX_FILTERS_PER_HANDLER] = { nullptr };
 };
 
 /**
@@ -27,6 +39,7 @@ public:
     void update();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
+    void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
     canbus_handler *can_handle;
 };
@@ -40,6 +53,7 @@ public:
     void update();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
+    void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
     can_handler *can_handle;
 };
@@ -53,6 +67,7 @@ public:
     void update();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
+    void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
     canbus_handler *can_handle;
 };

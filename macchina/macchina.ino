@@ -95,12 +95,37 @@ void update_channels() { // Tells all channels to check to send data, or to read
 }
 
 void channel_send_data(uint8_t channelID, uint8_t* data, uint16_t len) {
-    PCCOMM::logToSerial("Channel sending data");
     if (channels[channelID-1] != nullptr) {
-        PCCOMM::logToSerial("Channel sending data");
         channels[channelID-1]->transmit_data(len, data);
     }  else {
         PCCOMM::logToSerial("Cannot trasmit data on channel. Does not exist");
+    }
+}
+
+void channel_set_filter(uint8_t channelID, uint8_t* args) {
+    if (channels[channelID-1] != nullptr) {
+        uint8_t id;
+        uint8_t type;
+        uint32_t mask;
+        uint32_t filter;
+        uint32_t resp;
+        
+        id = args[0];
+        type = args[1];
+        memcpy(&mask, &args[2], 4);
+        memcpy(&filter, &args[6], 4);
+        memcpy(&resp, &args[10], 4);
+        channels[channelID-1]->set_filter(id, type, mask, filter, resp);
+    }  else {
+        PCCOMM::logToSerial("Cannot set channel filter. Does not exist");
+    }
+}
+
+void channel_remove_filter(uint8_t channelID, uint8_t id) {
+    if (channels[channelID-1] != nullptr) {
+        channels[channelID-1]->remove_filter(id);
+    }  else {
+        PCCOMM::logToSerial("Cannot remove channel filter. Does not exist");
     }
 }
 
@@ -117,14 +142,20 @@ void loop() {
             case CMD_EXIT: // User space application quit
                 connected = false;
                 break;
-            case CHANNEL_CREATE: // Create a new channel
+            case CMD_CHANNEL_CREATE: // Create a new channel
                 memcpy(&l, &comm_msg.args[2], 4);
                 create_channel(comm_msg.args[0], comm_msg.args[1], l);
                 break;
-            case CHANNEL_DATA: // Send data to a channel
+            case CMD_CHANNEL_DATA: // Send data to a channel
                 channel_send_data(comm_msg.args[0], &comm_msg.args[1], comm_msg.arg_size-1);
                 break;
-            case CHANNEL_DESTROY: // Destroy a channel
+            case CMD_CHANNEL_SET_FILTER:
+                channel_set_filter(comm_msg.args[0], &comm_msg.args[1]);
+                break;
+            case CMD_CHANNEL_REM_FILTER:
+                channel_remove_filter(comm_msg.args[0], comm_msg.args[1]);
+                break;
+            case CMD_CHANNEL_DESTROY: // Destroy a channel
                 destroy_channel(comm_msg.args[0]);
                 break;
             default: // Unknown??

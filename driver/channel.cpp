@@ -57,6 +57,24 @@ unsigned long channel_group::getFreeChannelID()
     return 0;
 }
 
+int channel_group::setFilter(unsigned long channel_id, unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID)
+{
+    channel* chan = getChannelWithID(channel_id);
+    if (chan == nullptr) {
+        return ERR_INVALID_CHANNEL_ID;
+    }  
+    return chan->setFilter(FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pFilterID);
+}
+
+int channel_group::remove_filter(unsigned long channel_id, unsigned long filterID)
+{
+    channel* chan = getChannelWithID(channel_id);
+    if (chan == nullptr) {
+        return ERR_INVALID_CHANNEL_ID;
+    }
+    return chan->remove_filter(filterID);
+}
+
 int channel_group::send_payload(unsigned long channel_id, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long timeout)
 {
     channel* chan = getChannelWithID(channel_id);
@@ -160,6 +178,60 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
     memcpy(&m.args[1], msg->Data, msg->DataSize);
     usbcomm::sendMessage(&m);
     return 0;
+}
+
+int channel::setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID)
+{
+    for (int i = 0; i < CHANNEL_MAX_FILTERS; i++) {
+        if (filters[i] == nullptr) {
+            filters[i] = new handler_filter{ 0x00 };
+            filters[i]->id = i+1;
+            *pFilterID = (unsigned long)(i + 1);
+            filters[i]->type = (uint8_t)FilterType;
+            memcpy(&filters[i]->mask, pMaskMsg, sizeof(&pMaskMsg));
+            memcpy(&filters[i]->filter, pPatternMsg, sizeof(&pPatternMsg));
+            if (FilterType == FLOW_CONTROL_FILTER) {
+                memcpy(&filters[i]->flow, pFlowControlMsg, sizeof(&pFlowControlMsg));
+            }
+            // Only copy the 32bit ID's for each filter - The rest of the filter we apply here in SW
+            PCMSG m = { 0x00 };
+            m.cmd_id = CMD_CHANNEL_SET_FILTER;
+            m.arg_size = 15; // 1 for CID, 1 for FID, 4 for Mask, 4 for pattern, 4 for Flow
+            m.args[0] = this->id;
+            m.args[1] = filters[i]->id;
+            memcpy(&m.args[2], &pMaskMsg->Data[0], 4);
+            memcpy(&m.args[6], &pPatternMsg->Data[0], 4);
+            if (FilterType == FLOW_CONTROL_FILTER) {
+                memcpy(&m.args[10], &pFlowControlMsg->Data[0], 4);
+            }
+            usbcomm::sendMessage(&m);
+            LOGGER.logDebug("CAN_FILT", "Adding filter with ID %lu", *pFilterID);
+            return STATUS_NOERROR;
+        }
+    }
+    LOGGER.logError("CAN_FILT", "Cannot add any more filters - Limit exceeded");
+    // No more free filters
+    return ERR_EXCEEDED_LIMIT;
+}
+
+int channel::remove_filter(unsigned long filterID)
+{
+    // Filter doesn't exit?
+    if (filters[filterID - 1] == nullptr) {
+        LOGGER.logError("CAN_FILT", "Cannot remove filter with ID of %lu, does not exist!", filterID);
+        return ERR_INVALID_MSG_ID;
+    }
+    LOGGER.logDebug("CAN_FILT", "Removing filter with ID %lu", filterID);
+    // Filter exists, remove it
+    delete filters[filterID - 1];
+    filters[filterID - 1] = nullptr;
+    PCMSG m = { 0x00 };
+    m.cmd_id = CMD_CHANNEL_REM_FILTER;
+    m.arg_size = 2; // 1 for CID, 1 for FID
+    m.args[0] = this->id;
+    m.args[1] = filterID;
+    usbcomm::sendMessage(&m);
+    return STATUS_NOERROR;
 }
 
 void channel::removeChannel()

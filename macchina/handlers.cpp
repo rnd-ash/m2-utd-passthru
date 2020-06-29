@@ -5,6 +5,36 @@
 handler::handler(unsigned long baud) {
 }
 
+void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
+    if (id > MAX_FILTERS_PER_HANDLER-1) {
+        PCCOMM::logToSerial("Cannot add filter - ID is out of range");
+        return;
+    }
+    if (this->filters[id-1] != nullptr) {
+        PCCOMM::logToSerial("Cannot add filter - Already in use");
+        return;
+    }
+    filters[id-1] = new handler_filter {
+        id,
+        type,
+        mask,
+        filter,
+        resp
+    };
+    char buf[100] = {0x00};
+    sprintf(buf, "Setting filter. Type: %02X, Mask: %08X, Filter: %08X, Resp: %08X", type, mask, filter, resp);
+    PCCOMM::logToSerial(buf);
+}
+
+void handler::destroy_filter(uint8_t id) {
+    if (this->filters[id-1] != nullptr) {
+        delete filters[id-1];
+        filters[id-1] = nullptr;
+    } else {
+         PCCOMM::logToSerial("Cannot remove filter - doesn't exist");
+    }
+}
+
 // CAN stuff (Normal CAN Payloads)
 
 can_handler::can_handler(unsigned long baud) : handler(baud) {
@@ -38,6 +68,10 @@ void can_handler::transmit(uint8_t* args, uint16_t len) {
 
 }
 
+void can_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
+    handler::add_filter(id, type, mask, filter, resp);
+}
+
 // ISO 9141 stuff (K-Line)
 
 iso9141_handler::iso9141_handler(unsigned long baud) : handler(baud) {
@@ -54,6 +88,10 @@ void iso9141_handler::destroy() {
 
 void iso9141_handler::transmit(uint8_t* args, uint16_t len) {
     // TODO Kline stuff
+}
+
+void iso9141_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
+    handler::add_filter(id, type, mask, filter, resp);
 }
 
 
@@ -102,4 +140,8 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
     } else {
         // TODO Multi-frame packets
     }
+}
+
+void iso15765_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
+    handler::add_filter(id, type, mask, filter, resp);
 }

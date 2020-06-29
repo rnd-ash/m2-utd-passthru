@@ -1,4 +1,5 @@
 #include "channels.h"
+#include "pc_comm.h"
 
 channel::channel(uint8_t id, uint8_t protocol, unsigned long baudRate) {
     this->id = id;
@@ -32,4 +33,20 @@ void channel::kill_channel() {
 
 void channel::update() {
     // TODO - update channel
+}
+
+void channel::set_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
+    if (this->protocol_handler == nullptr) {
+        PCCOMM::logToSerial("Cannot set filter - Handler is null");
+        return;
+    }
+    this->protocol_handler->add_filter(id, type, mask, filter, resp);
+}
+
+void channel::remove_filter(uint8_t id) {
+    if (this->protocol_handler == nullptr) {
+        PCCOMM::logToSerial("Cannot remove filter - Handler is null");
+        return;
+    }
+    this->protocol_handler->destroy_filter(id);
 }
