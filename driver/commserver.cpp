@@ -133,7 +133,7 @@ namespace commserver {
 	}
 
 	DWORD WINAPI PingLoop() {
-		while (can_read) {
+		while (can_read && usbcomm::isConnected()) { // Stop pinging on disconnect
 			pingMacchina();
 			// Ping every second, so sleep here
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));

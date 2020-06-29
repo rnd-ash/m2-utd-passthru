@@ -59,6 +59,9 @@ namespace usbcomm {
 		if (!WriteFile(handler, msg, sizeof(struct PCMSG), &written, NULL)) {
 			DWORD error = GetLastError();
 			LOGGER.logWarn("MACCHINA", "Error writing message! Code %d", (int)error);
+			if (error == 22 || error == 433) { // Device doesn't exit!? - Maybe unplugged!
+				connected = false;
+			}
 			mutex.unlock();
 			return false;
 		}
@@ -68,6 +71,9 @@ namespace usbcomm {
 
 
 	bool pollMessage(PCMSG* msg) {
+		if (!connected) { // Don't throw an exception, exit early if not connected
+			return false;
+		}
 		DWORD read = 0;
 		mutex.lock();
 		ClearCommError(handler, &errors, &com);

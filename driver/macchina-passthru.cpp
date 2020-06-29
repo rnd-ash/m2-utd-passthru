@@ -34,6 +34,9 @@ Establish a logical communication channel with the vehicle network (via the Pass
 */
 DllExport PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate, unsigned long* pChannelID) {
 	LOGGER.logInfo("DllExport", "PassThruConnect called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	unsigned long id = channels.addChannel(ProtocolID, Flags, Baudrate);
 	if (id == 0) { // Error - copy it to our error buffer
 		strcpy_s(lastError, "No more avaliable channels");
@@ -54,6 +57,9 @@ will be cleared.
 */
 DllExport PassThruDisconnect(unsigned long ChannelID) {
 	LOGGER.logInfo("DllExport", "PassThruDisconnect called - Channel is %lu", ChannelID);
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return channels.removeChannel(ChannelID);
 }
 
@@ -64,6 +70,9 @@ Messages will flow through PassThru device to the User Application..
 */
 DllExport PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout) {
 	//LOGGER.logInfo("DllExport", "PassThruReadMsgs called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -73,6 +82,9 @@ Transmit network protocol messages over an existing logical communication channe
 */
 DllExport PassThruWriteMsgs(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout) {
 	LOGGER.logInfo("DllExport", "PassThruWriteMsgs called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return channels.send_payload(ChannelID, pMsg, pNumMsgs, Timeout);
 }
 
@@ -83,6 +95,9 @@ There is a limit of ten periodic messages per network layer protocol.
 */
 DllExport PassThruStartPeriodicMsg(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pMsgID, unsigned long TimeInterval) {
 	LOGGER.logInfo("DllExport", "PassThruStartPeriodicMsg called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -92,6 +107,9 @@ Terminate the specified periodic message. Once terminated the message identifier
 */
 DllExport PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID) {
 	LOGGER.logInfo("DllExport", "PassThruStopPeriodicMsg called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -107,6 +125,9 @@ existing receive messages to be removed from the PassThru device receive queue.
 */
 DllExport PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID) {
 	LOGGER.logInfo("DllExport", "PassThruStartMsgFilter called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -116,6 +137,9 @@ Terminate the specified network protocol filter. Once terminated the filter iden
 */
 DllExport PassThruStopMsgFilter(unsigned long ChannelID, unsigned long FilterID) {
 	LOGGER.logInfo("DllExport", "PassThruStopMsgFilter called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -130,6 +154,9 @@ A current in excess of 200mA will damage CarDAQ; do not ground the FEPS line whi
 */
 DllExport PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long PinNumber, unsigned long Voltage) {
 	LOGGER.logInfo("DllExport", "PassThruSetProgrammingVoltage called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	return STATUS_NOERROR;
 }
 
@@ -140,6 +167,9 @@ and the version of the J2534 specification that was referenced. The version info
 */
 DllExport PassThruReadVersion(unsigned long DeviceID, char* pFirmwareVersion, char* pDllVersion, char* pApiVersion) {
 	LOGGER.logInfo("DllExport", "passThruReadVersion called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	memcpy(pFirmwareVersion, FIRMWARE_VERSION, sizeof(FIRMWARE_VERSION));
 	memcpy(pDllVersion, DLL_VERSION, sizeof(DLL_VERSION));
 	memcpy(pApiVersion, API_VERSION, sizeof(API_VERSION));
@@ -153,6 +183,9 @@ The error string refers to the most recent function call, rather than a specific
 */
 DllExport PassThruGetLastError(char* pErrorDescription) {
 	LOGGER.logInfo("DllExport", "PassThruGetLastError called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	if (pErrorDescription == nullptr) {
 		LOGGER.logError("DllExport", "Error description is a null pointer!?");
 		return ERR_NULL_PARAMETER;
@@ -167,6 +200,9 @@ The PassThruIoctl function is a general purpose I/O control function for modifyi
 */
 DllExport PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, void* pInput, void* pOutput) {
 	LOGGER.logInfo("DllExport", "PassThruIOCTL called");
+	if (!usbcomm::isConnected()) {
+		return ERR_DEVICE_NOT_CONNECTED;
+	}
 	// Test - Just copy voltage
 	if (IoctlID == READ_VBATT) {
 		*(unsigned long*)pOutput = globals::getBatVoltage();
