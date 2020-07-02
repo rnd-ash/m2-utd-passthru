@@ -3,6 +3,7 @@
 
 
 handler::handler(unsigned long baud) {
+    this->buflen = 0;
 }
 
 void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
@@ -26,6 +27,18 @@ void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filte
     PCCOMM::logToSerial(buf);
 }
 
+bool handler::update() {
+    return this->getData();
+}
+
+uint8_t* handler::getBuf() {
+    return this->buf;
+}
+
+uint8_t handler::getBufSize() {
+    return this->buflen;
+}
+
 void handler::destroy_filter(uint8_t id) {
     if (this->filters[id-1] != nullptr) {
         delete filters[id-1];
@@ -35,10 +48,15 @@ void handler::destroy_filter(uint8_t id) {
     }
 }
 
+void handler::destroy() {
+    delete this->buf;
+}
+
 // CAN stuff (Normal CAN Payloads)
 
 can_handler::can_handler(unsigned long baud) : handler(baud) {
     PCCOMM::logToSerial("Setting up CAN Handler");
+    this->buf = new uint8_t[12]; // Max (4 bytes for ID, 8 for DLC)
     if (ch0.isFree()) {
         ch0.lock(baud);
         this->can_handle = &ch0;
@@ -52,8 +70,8 @@ can_handler::can_handler(unsigned long baud) : handler(baud) {
     this->lastFrame = CAN_FRAME{};
 }
 
-void can_handler::update() {
-
+bool can_handler::getData() {
+    return false;
 }
 
 void can_handler::destroy() {
@@ -67,9 +85,9 @@ void can_handler::transmit(uint8_t* args, uint16_t len) {
 void can_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
     handler::add_filter(id, type, mask, filter, resp);
     if (type == PROTOCOL_FILTER_BLOCK) { // Block filter, so allow everything, then we do bitwising in SW
-        this->can_handle->setFilter(0xFFFFFFFF, 0xFFFFFFFF, false);
+        this->can_handle->setFilter(0x7FF, 0x00, false);
     } else { // Pass filter, so allow into mailboxes
-        this->can_handle->setFilter(mask, filter, false); // TODO Do Extended filtering
+        this->can_handle->setFilter(mask, filter & 0x7FF, false); // TODO Do Extended filtering
     }
 }
 
@@ -79,8 +97,8 @@ iso9141_handler::iso9141_handler(unsigned long baud) : handler(baud) {
     PCCOMM::logToSerial("Setting up ISO9141 Handler");
 }
 
-void iso9141_handler::update() {
-
+bool iso9141_handler::getData() {
+    return false;
 }
 
 void iso9141_handler::destroy() {
@@ -99,6 +117,7 @@ void iso9141_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32
 // ISO 15765 stuff (Big CAN Payloads)
 
 iso15765_handler::iso15765_handler(unsigned long baud) : handler(baud) {
+    this->buf = new uint8_t[12]; // Max (4 bytes for ID, 8 for DLC)
     PCCOMM::logToSerial("Setting up ISO15765 Handler");
     if (ch0.isFree()) {
         ch0.lock(baud);
@@ -113,10 +132,14 @@ iso15765_handler::iso15765_handler(unsigned long baud) : handler(baud) {
     this->lastFrame = CAN_FRAME{};
 }
 
-void iso15765_handler::update() {
+bool iso15765_handler::getData() {
     if (this->can_handle->read(lastFrame)) {
-        PCCOMM::logToSerial("Frames found!");
+        memcpy(&this->buf[0], &lastFrame.id, 4);
+        memcpy(&this->buf[4], lastFrame.data.bytes, lastFrame.length);
+        this->buflen = 4+lastFrame.length; 
+        return true;
     }
+    return false;
 }
 
 void iso15765_handler::destroy() {
@@ -145,9 +168,12 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
 
 void iso15765_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
     handler::add_filter(id, type, mask, filter, resp);
+    this->can_handle->setFilter(0x0, 0x0, false);
+    /*
     if (type == PROTOCOL_FILTER_BLOCK) { // Block filter, so allow everything, then we do bitwising in SW
         this->can_handle->setFilter(0x0, 0x0, false);
     } else { // Pass filter, so allow into mailboxes
-        this->can_handle->setFilter(filter, mask, false); // TODO Do Extended filtering
+        this->can_handle->setFilter(filter & 0x7FF, mask, false); // TODO Do Extended filtering
     }
+    */
 }

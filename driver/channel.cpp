@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "channel.h"
 #include "Logger.h"
-#include "usbcomm.h"
 
 unsigned long channel_group::addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate)
 {
@@ -43,6 +42,18 @@ int channel_group::removeChannel(unsigned long channelid)
         channels.erase(channelid);
     }
     return 0;
+}
+
+void channel_group::recvPayload(PCMSG* m)
+{
+    // We know its channel data coming into this function
+    channel* chan = getChannelWithID(m->args[0]);
+    if (chan == nullptr) {
+        LOGGER.logError("CHAN_RECV", "Cannot send data to requested channel %d (Channel does not exist)", m->args[0]);
+    }
+    else {
+        chan->recvData(&m->args[1], m->arg_size-1);
+    }
 }
 
 unsigned long channel_group::getFreeChannelID()
@@ -248,4 +259,9 @@ void channel::removeChannel()
     };
     m.args[0] = this->id;
     usbcomm::sendMessage(&m);
+}
+
+void channel::recvData(uint8_t* m, uint16_t len)
+{
+    LOGGER.logDebug("CHAN_RECV","Incomming data for channel %d, size: %lu", this->id, len);
 }

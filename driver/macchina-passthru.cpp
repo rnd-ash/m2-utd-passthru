@@ -73,7 +73,7 @@ DllExport PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned
 	if (!usbcomm::isConnected()) {
 		return ERR_DEVICE_NOT_CONNECTED;
 	}
-	return STATUS_NOERROR;
+	return channels.requestChannelData(ChannelID, pMsg, pNumMsgs, Timeout);
 }
 
 /*

@@ -21,13 +21,19 @@ struct handler_filter {
 class handler {
 public:
     handler(unsigned long baud);
-    virtual void update() = 0;
-    virtual void destroy() = 0;
+    virtual bool update();
+    virtual void destroy();
     virtual void transmit(uint8_t* args, uint16_t len) = 0;
     virtual void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
     virtual void destroy_filter(uint8_t id);
+    uint8_t* getBuf();
+    uint8_t getBufSize();
 private:
     handler_filter* filters[MAX_FILTERS_PER_HANDLER] = { nullptr };
+protected:
+    uint8_t* buf;
+    uint8_t buflen;
+    virtual bool getData() = 0;
 };
 
 /**
@@ -36,7 +42,7 @@ private:
 class can_handler : public handler {
 public:
     can_handler(unsigned long baud);
-    void update();
+    bool getData();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
@@ -51,7 +57,7 @@ private:
 class iso9141_handler : public handler {
 public:
     iso9141_handler(unsigned long baud);
-    void update();
+    bool getData();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
@@ -65,7 +71,7 @@ private:
 class iso15765_handler : public handler {
 public:
     iso15765_handler(unsigned long baud);
-    void update();
+    bool getData();
     void destroy();
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);

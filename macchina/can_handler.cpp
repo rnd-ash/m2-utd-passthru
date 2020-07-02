@@ -42,7 +42,6 @@ void canbus_handler::transmit(CAN_FRAME f) {
  // Attempts to read an avaliable frame from one of the mailboxes
 bool canbus_handler::read(CAN_FRAME f) {
     if (this->can->available() > 0) {
-        PCCOMM::logToSerial("CAN Frames avaliable");
         digitalWrite(this->actLED, LOW);
         this->can->read(f);
         return true;

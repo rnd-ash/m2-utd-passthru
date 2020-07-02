@@ -3,6 +3,7 @@
 #include "Logger.h"
 #include "usbcomm.h"
 #include "globals.h"
+#include "channel.h"
 
 namespace commserver {
 	HANDLE thread = NULL; // Comm thread
@@ -157,6 +158,10 @@ namespace commserver {
 				if (d.cmd_id == CMD_PING) { // Its a ping message!
 					processPingResponse(&d);
 					continue;
+				}
+				// Incomming data for a channel!
+				if (d.cmd_id == CMD_CHANNEL_DATA) {
+					channels.recvPayload(&d);
 				}
 				// TODO Process payloads
 			}

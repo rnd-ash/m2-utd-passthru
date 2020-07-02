@@ -33,9 +33,15 @@ void channel::kill_channel() {
 
 void channel::update() {
     if (this->protocol_handler != nullptr) {
-        this->protocol_handler->update();
+        if (this->protocol_handler->update()) {
+           PCMSG send = {0x00};
+           send.arg_size = protocol_handler->getBufSize()+1; // +1 for channel ID
+           send.cmd_id = CMD_CHANNEL_DATA;
+           send.args[0] = this->id;
+           memcpy(&send.args[1], protocol_handler->getBuf(), protocol_handler->getBufSize());
+           PCCOMM::sendMessage(&send); 
+        }
     }
-    // TODO - update channel
 }
 
 void channel::set_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {

@@ -4,7 +4,7 @@
 #define CANBUS_H
 
 #include "variant.h"
-#include <due_can.h>
+#include "due_can.h"
 
 #define CAN0_LED DS3 // CAN 0 LED - On if send or receive data
 #define CAN1_LED DS4 // CAN 1 LED - On if send or receive data

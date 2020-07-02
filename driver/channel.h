@@ -1,6 +1,8 @@
 #pragma once
 #include <map>
+#include <queue>
 #include "protocol_handler.h"
+#include "usbcomm.h"
 
 #define CHANNEL_SETTING_BAUD     0x01 // Baud rate change - 32bit unsigned long
 #define CHANNEL_SETTING_FLAGS    0x02 // Flag change - 32bit unsigned long
@@ -41,7 +43,9 @@ public:
 	int setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID);
 	int remove_filter(unsigned long filterID);
 	void removeChannel();
+	void recvData(uint8_t* m, uint16_t len);
 private:
+	std::queue<PASSTHRU_MSG> msg_queue;
 	protocol_handler* handler = nullptr;
 	uint8_t macchinaProtocolID;
 	handler_filter* filters[CHANNEL_MAX_FILTERS] = { nullptr };
@@ -65,6 +69,8 @@ public:
 	channel* getChannelWithID(unsigned long id);
 	unsigned long addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate);
 	int removeChannel(unsigned long channelid);
+	void recvPayload(PCMSG* m);
+	int requestChannelData(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout);
 };
 
 extern channel_group channels;
