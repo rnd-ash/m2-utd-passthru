@@ -24,8 +24,8 @@ public:
     virtual void update() = 0;
     virtual void destroy() = 0;
     virtual void transmit(uint8_t* args, uint16_t len) = 0;
-    void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
-    void destroy_filter(uint8_t id);
+    virtual void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
+    virtual void destroy_filter(uint8_t id);
 private:
     handler_filter* filters[MAX_FILTERS_PER_HANDLER] = { nullptr };
 };
@@ -41,6 +41,7 @@ public:
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
+    CAN_FRAME lastFrame;
     canbus_handler *can_handle;
 };
 
@@ -69,6 +70,7 @@ public:
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
+    CAN_FRAME lastFrame;
     canbus_handler *can_handle;
 };
 

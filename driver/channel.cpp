@@ -182,35 +182,41 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
 
 int channel::setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID)
 {
+    // Check if we have avaliable channel filters
     for (int i = 0; i < CHANNEL_MAX_FILTERS; i++) {
-        if (filters[i] == nullptr) {
+        if (filters[i] == nullptr) { // Found a free slot, allocate it
             filters[i] = new handler_filter{ 0x00 };
+
+            // Set filter values
             filters[i]->id = i+1;
             *pFilterID = (unsigned long)(i + 1);
             filters[i]->type = (uint8_t)FilterType;
             memcpy(&filters[i]->mask, pMaskMsg, sizeof(&pMaskMsg));
             memcpy(&filters[i]->filter, pPatternMsg, sizeof(&pPatternMsg));
-            if (FilterType == FLOW_CONTROL_FILTER) {
+            if (FilterType == FLOW_CONTROL_FILTER) { // Only copy if flow control (else pFlowControl is nullptr)
                 memcpy(&filters[i]->flow, pFlowControlMsg, sizeof(&pFlowControlMsg));
             }
-            // Only copy the 32bit ID's for each filter - The rest of the filter we apply here in SW
+
+            // Construct data to send to Macchina device
             PCMSG m = { 0x00 };
             m.cmd_id = CMD_CHANNEL_SET_FILTER;
-            m.arg_size = 15; // 1 for CID, 1 for FID, 4 for Mask, 4 for pattern, 4 for Flow
-            m.args[0] = this->id;
-            m.args[1] = filters[i]->id;
-            memcpy(&m.args[2], &pMaskMsg->Data[0], 4);
-            memcpy(&m.args[6], &pPatternMsg->Data[0], 4);
+            m.arg_size = 15; // 1 for CID, 1 for FID, 1 for FType, 4 for Mask, 4 for pattern, 4 for Flow
+            m.args[0] = this->id; // ID of channel for the filter
+            m.args[1] = filters[i]->id; // Filter ID to set on Macchina
+            m.args[2] = filters[i]->type; // Type of filter
+            // Copy the first 4 the bytes for each filter, the rest we can do in Software later
+            memcpy(&m.args[3], &pMaskMsg->Data[0], 4);
+            memcpy(&m.args[7], &pPatternMsg->Data[0], 4);
             if (FilterType == FLOW_CONTROL_FILTER) {
-                memcpy(&m.args[10], &pFlowControlMsg->Data[0], 4);
+                memcpy(&m.args[11], &pFlowControlMsg->Data[0], 4);
             }
             usbcomm::sendMessage(&m);
             LOGGER.logDebug("CAN_FILT", "Adding filter with ID %lu", *pFilterID);
             return STATUS_NOERROR;
         }
     }
-    LOGGER.logError("CAN_FILT", "Cannot add any more filters - Limit exceeded");
     // No more free filters
+    LOGGER.logError("CAN_FILT", "Cannot add any more filters - Limit exceeded");
     return ERR_EXCEEDED_LIMIT;
 }
 

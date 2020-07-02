@@ -11,6 +11,7 @@ namespace commserver {
 	HANDLE commEvent; // Handle for event from arduino
 	HANDLE exitEvent; // Handle for exiting / closing thread
 	HANDLE closedEvent; // Handle for when thread is closed
+	HANDLE closedEventPing; // Handle for when thread is closed (ping)
 	HANDLE events[20];
 	PCMSG d = { 0x00 };
 	bool can_read = false;
@@ -22,6 +23,7 @@ namespace commserver {
 		CloseHandle(exitEvent);
 		CloseHandle(commEvent);
 		CloseHandle(closedEvent);
+		CloseHandle(closedEventPing);
 	}
 
 	int WaitUntilReady(const char* deviceName, unsigned long timeout) {
@@ -44,11 +46,10 @@ namespace commserver {
 
 	void CloseCommThread() {
 		LOGGER.logInfo("commserver::CloseCommThread", "Closing comm thread");
-		can_read = false;
 		// Send one more thing to macchina letting it know driver is quitting
 		d.cmd_id = CMD_EXIT;
 		usbcomm::sendMessage(&d);
-
+		can_read = false;
 		WaitForSingleObject(closedEvent, 5000); // Wait for 5 seconds for the thread to terminate
 		CloseHandles();
 		CloseHandle(thread);
@@ -70,6 +71,11 @@ namespace commserver {
 		closedEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		if (closedEvent == NULL) {
 			LOGGER.logWarn("commserver::CreateEvents", "Cannot create closed event!");
+			return false;
+		}
+		closedEventPing = CreateEvent(NULL, TRUE, FALSE, NULL);
+		if (closedEventPing == NULL) {
+			LOGGER.logWarn("commserver::CreateEvents", "Cannot create closed event (ping)!");
 			return false;
 		}
 		commEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -162,12 +168,12 @@ namespace commserver {
 		LOGGER.logInfo("commserver::startPingComm", "started!");
 		PingLoop();
 		LOGGER.logInfo("commserver::startPingComm", "Exiting!");
+		SetEvent(closedEvent);
 		return 0;
 	}
 
 	DWORD WINAPI startComm(LPVOID lpParam) {
 		LOGGER.logInfo("commserver::startComm", "started!");
-		can_read = true;
 		CommLoop();
 		// TODO Handle driver upon exit
 		LOGGER.logInfo("commserver::startComm", "Exiting!");
@@ -178,12 +184,13 @@ namespace commserver {
 	bool CreateCommThread() {
 		// Check if thread is already running
 		if (thread == NULL) {
+			can_read = true; // Enable threads to send
 			LOGGER.logInfo("commserver::CreateCommThread", "Creating events for thread");
 			if (!CreateEvents()) {
 				LOGGER.logError("commserver::CreateCommThread", "Failed to create events!");
 				return false;
 			}
-			LOGGER.logInfo("commserver::CreateCommThread", "Creating thread");
+			LOGGER.logInfo("commserver::CreateCommThread", "Creating threads");
 			thread = CreateThread(NULL, 0, startComm, NULL, 0, NULL);
 			pingThread = CreateThread(NULL, 0, startCommPing, NULL, 0, NULL);
 			if (thread == NULL) {

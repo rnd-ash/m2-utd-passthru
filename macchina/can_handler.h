@@ -11,17 +11,20 @@
 
 class canbus_handler {
 public:
-    canbus_handler(uint8_t id, uint32_t baud);
+    canbus_handler(CANRaw* can);
     void setFilter(uint32_t canid, uint32_t mask, bool isExtended);
-    void transmit(CAN_FRAME *f);
-    bool read(CAN_FRAME *f);
+    void transmit(CAN_FRAME f);
+    bool read(CAN_FRAME f);
+    void unlock();
+    void lock(uint32_t baud);
+    bool isFree();
 private:
-    CANRaw getIface();
-    bool useCan1;
+    CANRaw *can;
     uint8_t actLED;
+    bool inUse = false;
 };
 
-extern canbus_handler *h0;
-extern canbus_handler *h1;
+extern canbus_handler ch0;
+extern canbus_handler ch1;
 
 #endif

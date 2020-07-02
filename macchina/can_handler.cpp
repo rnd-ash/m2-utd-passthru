@@ -1,59 +1,80 @@
 #include "can_handler.h"
 #include "pc_comm.h"
 
-canbus_handler::canbus_handler(uint8_t id, uint32_t baud) {
-    char buf[30] = {0x00};
-    sprintf(buf, "CAN Speed: %lu bps", baud);
+// Try to init CAN interface on one of the 2 avaliable built in interfaces
+canbus_handler::canbus_handler(CANRaw* can) {
+    if (!can) {
+        PCCOMM::logToSerial("CONSTRUCTOR - WTF Can is null!?");
+        return;
+    }
+    this->can = can;
+}
+
+// Is this interface handler free to be claimed?
+bool canbus_handler::isFree() {
+    return !this->inUse;
+}
+
+// Set a filter on one of the Rx mailboxes
+void canbus_handler::setFilter(uint32_t canid, uint32_t mask, bool isExtended) {
+    char buf[40] = {0x00};
+    sprintf(buf, "Setting Rx Filters - MASK: 0x%04X, Filter: 0x%04X", mask, canid);
     PCCOMM::logToSerial(buf);
-    switch(id) {
-        case 0:
-            PCCOMM::logToSerial("Setting up Can0");
-            this->actLED = CAN0_LED;
-            this->useCan1 = false;
-            PCCOMM::logToSerial("Done");
-            this->getIface().begin(baud);
-            PCCOMM::logToSerial("Done1");
-            break;
-        case 1:
-            PCCOMM::logToSerial("Setting up Can1");
-            this->actLED = CAN1_LED;
-            this->useCan1 = true;
-            PCCOMM::logToSerial("Done");
-            this->getIface().begin(baud);
-            PCCOMM::logToSerial("Done1");
-            break;
-        default:
-            PCCOMM::logToSerial("ERROR SETTING UP CAN INVALID ID");
-            break;
+    for (int i = 0; i < 7; i++) {
+        this->can->setRXFilter(canid, mask, isExtended);
     }
 }
 
-CANRaw canbus_handler::getIface() {
-    return this->useCan1 ? Can0 : Can1;
-}
-
-void canbus_handler::setFilter(uint32_t canid, uint32_t mask, bool isExtended) {
-    this->getIface().setRXFilter(canid, mask, isExtended);
-}
-
-void canbus_handler::transmit(CAN_FRAME *f) {
+// Transmits a frame on the bus
+void canbus_handler::transmit(CAN_FRAME f) {
+    if (!this->can) {
+        PCCOMM::logToSerial("TRANSMIT - WTF Can is null!?");
+        return;
+    }
     digitalWrite(this->actLED, LOW);
     char buf[100] = {0x00};
-    sprintf(buf, "CAN Sending CAN Frame. ID: 0x%04X - DLC: %d", f->id, f->length);
+    sprintf(buf, "CAN Sending CAN Frame. ID: 0x%04X - DLC: %d", f.id, f.length);
     PCCOMM::logToSerial(buf);
-    if (!this->getIface().sendFrame(*f)) {
+    if (!this->can->sendFrame(f)) {
         PCCOMM::logToSerial("Error sending CAN Frame!");
     }
 }
-
-bool canbus_handler::read(CAN_FRAME *f) {
-    if (this->getIface().available() > 0) {
+ // Attempts to read an avaliable frame from one of the mailboxes
+bool canbus_handler::read(CAN_FRAME f) {
+    if (this->can->available() > 0) {
         PCCOMM::logToSerial("CAN Frames avaliable");
         digitalWrite(this->actLED, LOW);
-        this->getIface().read(*f);
+        this->can->read(f);
+        return true;
     }
+    return false;
+}
+
+// Locks the interface - Stops another channel from using it
+void canbus_handler::lock(uint32_t baud) {
+    PCCOMM::logToSerial("Locking CAN Interface");
+    if (!this->can) {
+        PCCOMM::logToSerial("LOCK - WTF Can is null!?");
+        return;
+    }
+    this->can->init(baud);
+    PCCOMM::logToSerial("CAN enabled andbaud set!");
+    this->inUse = true;
+}
+
+// Unlocks the interface - Marks it as being avaliable for a new channel
+void canbus_handler::unlock() {
+    PCCOMM::logToSerial("Unlocking CAN Interface");
+    if (!this->can) {
+        PCCOMM::logToSerial("UNLOCK - WTF Can is null!?");
+        return;
+    }
+    this->can->disable();
+    PCCOMM::logToSerial("CAN Disabled!");
+    this->inUse = false;
+    //TODO Clear Tx and Rx buffers here, and put CAN To sleep
 }
 
 // nullptr implies they are not used yet
-extern canbus_handler *h0 = nullptr;
-extern canbus_handler *h1 = nullptr;
+extern canbus_handler ch0 = canbus_handler(&Can0); // First avaliable interface  (Use can0)
+extern canbus_handler ch1 = canbus_handler(&Can1); // Second avaliable interface (Use can1)

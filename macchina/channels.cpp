@@ -32,6 +32,9 @@ void channel::kill_channel() {
 }
 
 void channel::update() {
+    if (this->protocol_handler != nullptr) {
+        this->protocol_handler->update();
+    }
     // TODO - update channel
 }
 

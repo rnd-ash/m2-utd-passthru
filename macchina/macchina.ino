@@ -25,6 +25,9 @@ PCMSG comm_msg = {0x00};
 void setup() {
     SerialUSB.begin(115200);
     pinMode(DS6, OUTPUT);
+    pinMode(DS5, OUTPUT);
+    pinMode(DS4, OUTPUT);
+    pinMode(DS3, OUTPUT);
     pinMode(DS2, OUTPUT);
     pinMode(DS7_GREEN, OUTPUT);
     pinMode(DS7_BLUE, OUTPUT);
@@ -104,17 +107,13 @@ void channel_send_data(uint8_t channelID, uint8_t* data, uint16_t len) {
 
 void channel_set_filter(uint8_t channelID, uint8_t* args) {
     if (channels[channelID-1] != nullptr) {
-        uint8_t id;
-        uint8_t type;
-        uint32_t mask;
-        uint32_t filter;
-        uint32_t resp;
-        
-        id = args[0];
-        type = args[1];
-        memcpy(&mask, &args[2], 4);
-        memcpy(&filter, &args[6], 4);
-        memcpy(&resp, &args[10], 4);
+        uint8_t id = args[0];
+        uint8_t type = args[1];
+        // Most horrible C++ code award goes here
+        // Forcing bit shift rather than memcpy to avoid bytes being swapped around
+        uint32_t mask = args[2] << 24 | args[3] << 16 | args[4] << 8 | args[5];
+        uint32_t filter = args[6] << 24 | args[7] << 16 | args[8] << 8 | args[9];
+        uint32_t resp = args[10] << 24 | args[11] << 16 | args[12] << 8 | args[13];
         channels[channelID-1]->set_filter(id, type, mask, filter, resp);
     }  else {
         PCCOMM::logToSerial("Cannot set channel filter. Does not exist");
