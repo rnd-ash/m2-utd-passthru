@@ -15,6 +15,11 @@
 #define CMD_CHANNEL_SET_FILTER 0x08 // Add a filter to a channel
 #define CMD_CHANNEL_REM_FILTER 0x09 // Remove a filter from a channel;
 
+// Command responses (From macchina)
+#define CMD_RES_FROM_CMD       0xA0 // This gets put onto the first nibble of a CMD Id if its the Macchina responding from it 
+#define CMD_RES_STATE_OK       0x10 // Command sent to Macchina was OK - Args contains response data if necessary
+#define CMD_RES_STATE_FAIL     0x20 // Command send to Macchina failed, args contains error message
+
 #define CMD_EXIT 0xFF // If sent, device will reset itself back into default state (Assume use app has quit)
 
 struct PCMSG { // Total 512 bytes
@@ -26,9 +31,11 @@ struct PCMSG { // Total 512 bytes
 namespace usbcomm
 {
     bool pollMessage(PCMSG* msg);
-    bool sendMessage(PCMSG* msg);
+    bool sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs);
+    bool sendMsg(PCMSG* msg, bool getResponse);
     bool isConnected();
     bool OpenPort();
     void ClosePort();
+    const char* getLastError();
 };
 

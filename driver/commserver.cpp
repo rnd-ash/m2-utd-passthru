@@ -49,7 +49,7 @@ namespace commserver {
 		LOGGER.logInfo("commserver::CloseCommThread", "Closing comm thread");
 		// Send one more thing to macchina letting it know driver is quitting
 		d.cmd_id = CMD_EXIT;
-		usbcomm::sendMessage(&d);
+		usbcomm::sendMsg(&d, false);
 		can_read = false;
 		WaitForSingleObject(closedEvent, 5000); // Wait for 5 seconds for the thread to terminate
 		CloseHandles();
@@ -125,7 +125,7 @@ namespace commserver {
 		send.args[0] = 0x01;
 		send.args[0] = 0x02;
 		send.args[0] = 0x03;
-		usbcomm::sendMessage(&send);
+		usbcomm::sendMsg(&send, false);
 	}
 	
 	void processPingResponse(PCMSG *msg) {

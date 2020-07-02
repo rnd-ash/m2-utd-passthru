@@ -44,6 +44,7 @@ public:
 	int remove_filter(unsigned long filterID);
 	void removeChannel();
 	void recvData(uint8_t* m, uint16_t len);
+	int requestData(PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout);
 private:
 	std::queue<PASSTHRU_MSG> msg_queue;
 	protocol_handler* handler = nullptr;

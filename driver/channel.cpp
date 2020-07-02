@@ -56,6 +56,15 @@ void channel_group::recvPayload(PCMSG* m)
     }
 }
 
+int channel_group::requestChannelData(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout)
+{
+   channel* chan = getChannelWithID(ChannelID);
+   if (chan == nullptr) {
+       return ERR_INVALID_CHANNEL_ID;
+   }
+   return chan->requestData(pMsg, pNumMsgs, Timeout);
+}
+
 unsigned long channel_group::getFreeChannelID()
 {
     for (int i = 0; i < MAX_CHANNELS; i++) {
@@ -173,7 +182,7 @@ bool channel::setMacchinaChannel()
     m.arg_size = 6;
     unsigned long baud = handler->getBaud();
     memcpy(&m.args[2], &baud, 4);
-    return usbcomm::sendMessage(&m);
+    return usbcomm::sendMsg(&m, false);
 }
 
 int channel::sendPayload(PASSTHRU_MSG* msg)
@@ -187,7 +196,7 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
     m.cmd_id = CMD_CHANNEL_DATA; // Sending data
     m.args[0] = (uint8_t)this->id;
     memcpy(&m.args[1], msg->Data, msg->DataSize);
-    usbcomm::sendMessage(&m);
+    usbcomm::sendMsg(&m, false);
     return 0;
 }
 
@@ -221,7 +230,7 @@ int channel::setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHR
             if (FilterType == FLOW_CONTROL_FILTER) {
                 memcpy(&m.args[11], &pFlowControlMsg->Data[0], 4);
             }
-            usbcomm::sendMessage(&m);
+            usbcomm::sendMsg(&m, false);
             LOGGER.logDebug("CAN_FILT", "Adding filter with ID %lu", *pFilterID);
             return STATUS_NOERROR;
         }
@@ -247,7 +256,7 @@ int channel::remove_filter(unsigned long filterID)
     m.arg_size = 2; // 1 for CID, 1 for FID
     m.args[0] = this->id;
     m.args[1] = filterID;
-    usbcomm::sendMessage(&m);
+    usbcomm::sendMsg(&m, false);
     return STATUS_NOERROR;
 }
 
@@ -258,10 +267,16 @@ void channel::removeChannel()
         1,
     };
     m.args[0] = this->id;
-    usbcomm::sendMessage(&m);
+    usbcomm::sendMsg(&m, false);
 }
 
 void channel::recvData(uint8_t* m, uint16_t len)
 {
     LOGGER.logDebug("CHAN_RECV","Incomming data for channel %d, size: %lu", this->id, len);
+}
+
+int channel::requestData(PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout)
+{
+    // TODO - Read from buffer
+    return ERR_BUFFER_EMPTY; // Temporary return value
 }
