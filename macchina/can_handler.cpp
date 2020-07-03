@@ -2,12 +2,13 @@
 #include "pc_comm.h"
 
 // Try to init CAN interface on one of the 2 avaliable built in interfaces
-canbus_handler::canbus_handler(CANRaw* can) {
+canbus_handler::canbus_handler(CANRaw* can, uint8_t led_pin) {
     if (!can) {
         PCCOMM::logToSerial("CONSTRUCTOR - WTF Can is null!?");
         return;
     }
     this->can = can;
+    this->actLED = led_pin;
 }
 
 // Is this interface handler free to be claimed?
@@ -75,5 +76,5 @@ void canbus_handler::unlock() {
 }
 
 // nullptr implies they are not used yet
-extern canbus_handler ch0 = canbus_handler(&Can0); // First avaliable interface  (Use can0)
-extern canbus_handler ch1 = canbus_handler(&Can1); // Second avaliable interface (Use can1)
+extern canbus_handler ch0 = canbus_handler(&Can0, DS4); // First avaliable interface  (Use can0)
+extern canbus_handler ch1 = canbus_handler(&Can1, DS5); // Second avaliable interface (Use can1)

@@ -28,11 +28,23 @@ struct PCMSG { // Total 512 bytes
     uint8_t args[509];
 };
 
+
+enum CMD_RES {
+    // Send Failed (Macchina didn't even receive the request)
+    SEND_FAIL = 0,
+    // Send OK - And Macchina was OK processing request
+    CMD_OK = 1,
+    // Macchina failed when processing the request
+    CMD_FAIL = 2,
+    // Macchina did not respond in time
+    CMD_TIMEOUT = 3
+};
+
 namespace usbcomm
 {
     bool pollMessage(PCMSG* msg);
-    bool sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs);
-    bool sendMsg(PCMSG* msg, bool getResponse);
+    CMD_RES sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs);
+    CMD_RES sendMsg(PCMSG* msg, bool getResponse);
     bool isConnected();
     bool OpenPort();
     void ClosePort();

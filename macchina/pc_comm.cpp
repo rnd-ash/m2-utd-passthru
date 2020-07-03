@@ -37,7 +37,7 @@ namespace PCCOMM {
         digitalWrite(DS7_GREEN, HIGH);
     }
 
-     void logToSerial(char* msg) {
+    void logToSerial(char* msg) {
         uint16_t len = max(strlen(msg), 508);
         PCMSG res = {
             CMD_LOG,
@@ -45,5 +45,27 @@ namespace PCCOMM {
         };
         memcpy(res.args, msg, len);
         sendMessage(&res);
-     }
+    }
+
+    void respondOK(uint8_t cmd_id, uint8_t* resp_data, uint16_t resp_data_len) {
+        PCMSG send = {
+            cmd_id | CMD_RES_FROM_CMD,
+            resp_data_len+1,
+            CMD_RES_STATE_OK
+        };
+        memcpy(&send.args[1], &resp_data, resp_data_len);
+        sendMessage(&send);
+    }
+
+    void respondFail(uint8_t cmd_id, uint8_t err_code, char* msg) {
+        int len = strlen(msg);
+        PCMSG send = {
+            cmd_id | CMD_RES_FROM_CMD,
+            len+2,
+            CMD_RES_STATE_FAIL,
+            err_code
+        };
+        memcpy(&send.args[2], &msg, len);
+        sendMessage(&send);
+    }
 };

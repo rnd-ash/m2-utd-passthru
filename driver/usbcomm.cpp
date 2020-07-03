@@ -69,7 +69,7 @@ namespace usbcomm {
 		mutex.lock();
 		if (!WriteFile(handler, msg, sizeof(struct PCMSG), &written, NULL)) {
 			DWORD error = GetLastError();
-			LOGGER.logWarn("MACCHINA", "Error writing message! Code %d", (int)error);
+			LOGGER.logWarn("M_SEND", "Error writing message! Code %d", (int)error);
 			if (error == 22 || error == 433) { // Device doesn't exit!? - Maybe unplugged!
 				connected = false;
 			}
@@ -80,21 +80,21 @@ namespace usbcomm {
 		return true;
 	}
 
-	bool sendMsg(PCMSG* msg, bool getResponse) {
+	CMD_RES sendMsg(PCMSG* msg, bool getResponse) {
 		return sendMsg(msg, getResponse, 10); // Min wait is 10ms (Lets read thread do some processing)
 	}
 
-	bool sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs)
+	CMD_RES sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs)
 	{
 		hasResult = false; // Set this here, so this is only True when the reader thread detects a response
 		// Send the message first
 		if (!internalSendMessage(msg)) {
 			lastError = "Could not send command to Macchina";
-			return false;
+			return CMD_RES::SEND_FAIL;
 		}
 		// Don't need a response, who cares
 		if (!getResponse) {
-			return true;
+			return CMD_RES::CMD_OK;
 		}
 		// Wait for our response message
 		const clock_t begin_time = clock();
@@ -105,26 +105,31 @@ namespace usbcomm {
 		// Either timer expired or we have a message before timer ended, figure out which
 		if (!hasResult) { // Still no result!? - Macchina timeout
 			lastError = "Timeout requesting response";
-			return false;
+			return CMD_RES::CMD_TIMEOUT;
 		}
 
 		// Yay - We have a response from Macchina - process it
-		bool return_result = false;
+		CMD_RES return_result = CMD_RES::CMD_FAIL;
 		resMutex.lock(); // Lock result mutex
+		memcpy(msg, &lastResult, sizeof(struct PCMSG)); // copy the response back
 		if (lastResult.cmd_id == msg->cmd_id) {
 			if (lastResult.args[0] == CMD_RES_STATE_OK) {
-				return_result = true; // Command OK!
-				memcpy(msg, &lastResult, sizeof(struct PCMSG)); // copy the response back
+				LOGGER.logDebug("M_SEND_RESP", "Macchina responded OK!");
+				return_result = CMD_RES::CMD_OK; // Command OK!
 			}
 			else if (lastResult.args[0] == CMD_RES_STATE_FAIL) { // Oh no! Command failed
-				return_result = false;
+				lastError.assign(lastResult.args[2], lastResult.arg_size-2); // String starts at pos 2 in the result // 0 - Result, 1 - Result code
+				LOGGER.logError("M_SEND_RESP", "Macchina failed to process request. Message: '%s'", lastError.c_str());
+				return_result = CMD_RES::CMD_FAIL;
 			}
 		}
 		else {
 			// WTF - Macchina responded with the WRONG CMD ID (Maybe its for a different command?)
 			lastError = "Macchina responded with result for wrong command";
+			return_result = CMD_RES::CMD_TIMEOUT;
 		}
 		resMutex.unlock(); // Unlock result mutex
+
 		// Response found! - Query it
 		return return_result;
 	}
@@ -142,16 +147,16 @@ namespace usbcomm {
 			ReadFile(handler, msg, sizeof(struct PCMSG), &read, NULL);
 			mutex.unlock();
 			if (read != sizeof(struct PCMSG)) {
-				LOGGER.logError("MACCHINA LOG", "Missmatch. Want %lu bytes, got %lu", sizeof(PCMSG), read);
+				LOGGER.logError("M_READ", "Missmatch. Want %lu bytes, got %lu", sizeof(PCMSG), read);
 				return false;
 			}
 			if (msg->cmd_id == CMD_LOG) {
-				LOGGER.logInfo("MACCHINA LOG", "%s", msg->args);
+				LOGGER.logInfo("M_READ", "Macchina message: '%s'", msg->args);
 				return false;
 			}
 			// Its a response message for a command sent on another thread!
 			else if ((msg->cmd_id & 0xF0) == CMD_RES_FROM_CMD) {
-				LOGGER.logDebug("MACCHINA_READ", "Received a result message");
+				LOGGER.logDebug("M_READ", "Received a result message");
 				resMutex.lock();
 				memcpy(&lastResult, msg, sizeof(struct PCMSG));
 				hasResult = true;

@@ -17,6 +17,8 @@ namespace PCCOMM {
     bool pollMessage(PCMSG *msg);
     void sendMessage(PCMSG *msg);
     void logToSerial(char* msg);
+    void respondOK(uint8_t cmd_id, uint8_t* resp_data, uint16_t resp_data_len);
+    void respondFail(uint8_t cmd_id, uint8_t err_code, char* msg);
 };
 
 
