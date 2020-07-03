@@ -1,47 +1,60 @@
 #include "pch.h"
 #include "channel.h"
 #include "Logger.h"
+#include "globals.h"
 
-unsigned long channel_group::addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate)
+
+
+std::tuple<int, unsigned long> channel_group::addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate)
 {
     unsigned long chanid = getFreeChannelID();
     if (chanid != 0) {
         channel c = channel(chanid);
-        if (!c.setProtocol(ProtocolID)) {
+        int res;
+        // Firstly, set protocol
+        res = c.setProtocol(ProtocolID);
+        if (res != STATUS_NOERROR) {
             LOGGER.logError("CHAN_GROUP", "Error setting channel protocol!");
-            return 0;
+            return std::make_tuple(res, 0);
         }
-        if (!c.setFlags(Flags)) {
+        // Then, set channel flags
+        res = c.setFlags(Flags);
+        if (res != STATUS_NOERROR) {
             LOGGER.logError("CHAN_GROUP", "Error setting channel flags!");
-            return 0;
+            return std::make_tuple(res, 0);
         }
-        if (!c.setBaud(Baudrate)) {
+        // Set channel baud rate
+        res = c.setBaud(Baudrate);
+        if (res != STATUS_NOERROR) {
             LOGGER.logError("CHAN_GROUP", "Error setting channel baudrate!");
-            return 0;
+            return std::make_tuple(res, 0);
         }
         // Now channel is setup here, deploy on the Macchina!
-        if (!c.setMacchinaChannel()) {
+        res = c.setMacchinaChannel();
+        if (res != STATUS_NOERROR) {
             LOGGER.logError("CHAN_GROUP", "Error deploying channel on macchina!");
-            return 0;
+            return std::make_tuple(res, 0);
         }
-
         this->channels.emplace(std::make_pair(chanid, c));
         LOGGER.logDebug("CHAN_GROUP", "Created channel OK. Id is %lu", chanid);
     }
     else {
         LOGGER.logError("CHAN_GROUP", "Error creating channel!");
+        globals::setErrorString("No more free channels");
+        return std::make_tuple(ERR_FAILED, chanid);
     }
-    return chanid;
+    return std::make_tuple(STATUS_NOERROR, chanid);
 }
 
 int channel_group::removeChannel(unsigned long channelid)
 {
     used[channelid - 1] = false;
     if (channels.find(channelid) != channels.end()) {
-        channels.at(channelid).removeChannel();
+        int ret = channels.at(channelid).removeChannel();
         channels.erase(channelid);
+        return ret;
     }
-    return 0;
+    return ERR_INVALID_CHANNEL_ID; // Channel doesn't exist??
 }
 
 void channel_group::recvPayload(PCMSG* m)
@@ -126,7 +139,7 @@ channel::channel(unsigned long id)
     this->macchinaProtocolID = 0x00;
 }
 
-bool channel::setProtocol(unsigned long ProtocolID)
+int channel::setProtocol(unsigned long ProtocolID)
 {
 
     switch (ProtocolID) {
@@ -144,30 +157,32 @@ bool channel::setProtocol(unsigned long ProtocolID)
         break;
     default:
         LOGGER.logError("CHAN_PROT", "Unsupported protocol %lu", ProtocolID);
-        return false;
+        return ERR_INVALID_PROTOCOL_ID;
     }
-    return true;
+    return STATUS_NOERROR;
 }
 
-bool channel::setFlags(unsigned long Flags)
+int channel::setFlags(unsigned long Flags)
 {
     if (this->handler == nullptr) {
-        return false;
+        globals::setErrorString("Handler is null");
+        return ERR_FAILED;
     }
     this->handler->setFlags(Flags);
-    return true;
+    return STATUS_NOERROR;
 }
 
-bool channel::setBaud(unsigned long Baudrate)
+int channel::setBaud(unsigned long Baudrate)
 {
     if (this->handler == nullptr) {
-        return false;
+        globals::setErrorString("Handler is null");
+        return ERR_FAILED;
     }
     this->handler->setBaud(Baudrate);
-    return true;
+    return STATUS_NOERROR;
 }
 
-bool channel::setMacchinaChannel()
+int channel::setMacchinaChannel()
 {
     // Paylaod args format
     // 0 - Channel ID
@@ -182,7 +197,16 @@ bool channel::setMacchinaChannel()
     m.arg_size = 6;
     unsigned long baud = handler->getBaud();
     memcpy(&m.args[2], &baud, 4);
-    return usbcomm::sendMsg(&m, false);
+    CMD_RES res = usbcomm::sendMsgResp(&m);
+    if (res == CMD_RES::CMD_FAIL) {
+        return m.args[1];
+    }
+    else if (res == CMD_RES::CMD_TIMEOUT) {
+        // Copy comm error msg
+        globals::setErrorString(usbcomm::getLastError());
+        return ERR_FAILED;
+    }
+    return STATUS_NOERROR;
 }
 
 int channel::sendPayload(PASSTHRU_MSG* msg)
@@ -196,7 +220,7 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
     m.cmd_id = CMD_CHANNEL_DATA; // Sending data
     m.args[0] = (uint8_t)this->id;
     memcpy(&m.args[1], msg->Data, msg->DataSize);
-    usbcomm::sendMsg(&m, false);
+    usbcomm::sendMsg(&m);
     return 0;
 }
 
@@ -236,7 +260,7 @@ int channel::setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHR
             if (FilterType == FLOW_CONTROL_FILTER) {
                 memcpy(&m.args[11], &pFlowControlMsg->Data[0], 4);
             }
-            usbcomm::sendMsg(&m, false);
+            usbcomm::sendMsg(&m);
             LOGGER.logDebug("CAN_FILT", "Adding filter with ID %lu", *pFilterID);
             return STATUS_NOERROR;
         }
@@ -262,18 +286,36 @@ int channel::remove_filter(unsigned long filterID)
     m.arg_size = 2; // 1 for CID, 1 for FID
     m.args[0] = this->id;
     m.args[1] = filterID;
-    usbcomm::sendMsg(&m, false);
+    usbcomm::sendMsg(&m);
     return STATUS_NOERROR;
 }
 
-void channel::removeChannel()
+int channel::removeChannel()
 {
     PCMSG m = {
         CMD_CHANNEL_DESTROY,
         1,
     };
     m.args[0] = this->id;
-    usbcomm::sendMsg(&m, false);
+    // Ensure Macchina removed the channel
+
+    switch (usbcomm::sendMsgResp(&m))
+    {
+    case CMD_RES::CMD_OK:
+        return STATUS_NOERROR;
+    case CMD_RES::SEND_FAIL:
+        return ERR_DEVICE_NOT_CONNECTED;
+    case CMD_RES::CMD_FAIL:
+        LOGGER.logError("CHAN_DEL", "Macchina failed to remove channel");
+        return m.args[1];
+    case CMD_RES::CMD_TIMEOUT:
+        globals::setErrorString(usbcomm::getLastError());
+        return ERR_FAILED;
+    default:
+        LOGGER.logError("CHAN_DEL", "WTF - CMD_RES invalid??");
+        globals::setErrorString("CMD_RES invalid");
+        return ERR_FAILED;
+    }
 }
 
 void channel::recvData(uint8_t* m, uint16_t len)

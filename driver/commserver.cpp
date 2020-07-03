@@ -27,7 +27,7 @@ namespace commserver {
 		CloseHandle(closedEventPing);
 	}
 
-	int WaitUntilReady(const char* deviceName, unsigned long timeout) {
+	int WaitUntilReady(const char* deviceName, long timeout) {
 		if (usbcomm::isConnected()) {
 			return 0;
 		}
@@ -49,7 +49,7 @@ namespace commserver {
 		LOGGER.logInfo("commserver::CloseCommThread", "Closing comm thread");
 		// Send one more thing to macchina letting it know driver is quitting
 		d.cmd_id = CMD_EXIT;
-		usbcomm::sendMsg(&d, false);
+		usbcomm::sendMsg(&d);
 		can_read = false;
 		WaitForSingleObject(closedEvent, 5000); // Wait for 5 seconds for the thread to terminate
 		CloseHandles();
@@ -118,25 +118,33 @@ namespace commserver {
 		return true;
 	}
 
-	void pingMacchina() {
-		PCMSG send = { 0x0F };
-		send.cmd_id = CMD_PING;
-		send.arg_size = 0x02;
-		send.args[0] = 0x01;
-		send.args[0] = 0x02;
-		send.args[0] = 0x03;
-		usbcomm::sendMsg(&send, false);
-	}
-	
-	void processPingResponse(PCMSG *msg) {
+	void processPingResponse(PCMSG* msg) {
 		// Reponse args:
-		// 0-3 = Batter voltage (mV)
-		// 4 - Current number of channels open
+		// 0 - Response OK!
+		// 1-4 = Batter voltage (mV)
+		// 5 - Current number of channels open
 		float bat;
-		memcpy(&bat, &msg->args[0], 4);
-		uint8_t channel_count = msg->args[4];
+		memcpy(&bat, &msg->args[1], 4);
+		uint8_t channel_count = msg->args[5];
 		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV (Macchina sends it in V)
 		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v, %d active channels", bat, channel_count);
+	}
+
+	void pingMacchina() {
+		PCMSG send = { CMD_PING };
+		switch (usbcomm::sendMsgResp(&send)) {
+		case CMD_RES::CMD_OK:
+			processPingResponse(&send);
+			break;
+		case CMD_RES::CMD_FAIL:
+			LOGGER.logError("MACCHINA-PING", "Failed to ping");
+			break;
+		// Ignore these (Macchina may be busy)
+		case CMD_RES::CMD_TIMEOUT:
+		case CMD_RES::SEND_FAIL:
+		default:
+			break;
+		}
 	}
 
 	DWORD WINAPI PingLoop() {

@@ -9,7 +9,6 @@ public:
 	void setBaud(unsigned long baud);
 	unsigned long getBaud();
 protected:
-	unsigned long id;
 	unsigned long baud;
 	unsigned long flags;
 	unsigned long channelid;

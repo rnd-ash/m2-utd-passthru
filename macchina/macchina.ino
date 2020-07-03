@@ -1,6 +1,7 @@
 #include "pc_comm.h"
 #include "can_handler.h"
 #include "channels.h"
+#include "j2534_mini.h"
 #include <map>
 
 #include <M2_12VIO.h>
@@ -24,17 +25,19 @@ PCMSG comm_msg = {0x00};
 // the setup function runs once when you press reset or power the board
 void setup() {
     SerialUSB.begin(115200);
-    pinMode(DS6, OUTPUT);
-    pinMode(DS5, OUTPUT);
-    pinMode(DS4, OUTPUT);
-    pinMode(DS3, OUTPUT);
-    pinMode(DS2, OUTPUT);
-    pinMode(DS7_GREEN, OUTPUT);
-    pinMode(DS7_BLUE, OUTPUT);
+    pinMode(DS6, OUTPUT); // Green
+    pinMode(DS5, OUTPUT); // Yellow
+    pinMode(DS4, OUTPUT); // Yellow
+    pinMode(DS3, OUTPUT); // Yellow
+    pinMode(DS2, OUTPUT); // Red
+    pinMode(DS7_GREEN, OUTPUT); // RGB (Green)
+    pinMode(DS7_BLUE, OUTPUT);  // RGB (Blue)
+    pinMode(DS7_RED, OUTPUT);   // RGB (Red)
     digitalWrite(DS2, LOW); // At startup assume no PC
     digitalWrite(DS6, HIGH);
     digitalWrite(DS7_GREEN, HIGH);
     digitalWrite(DS7_BLUE, HIGH);
+    digitalWrite(DS7_RED, HIGH);
     M2IO.Init_12VIO();
 }
 
@@ -52,31 +55,32 @@ float getVoltage() {
 
 unsigned long lastPing = 0;
 void doPing() {
-    comm_msg.cmd_id = CMD_PING;
-    comm_msg.arg_size = 8;
     float f = getVoltage();
-    memcpy(&comm_msg.args[0], &f, 4);
-    comm_msg.args[4] = active_channels;
-    PCCOMM::sendMessage(&comm_msg);
+    uint8_t resp[5] = {0x00};
+    memcpy(&resp[0], &f, 4);
+    resp[4] = active_channels;
+    PCCOMM::respondOK(CMD_PING, resp, 5);
 }
 
 
 void create_channel(uint8_t id, uint8_t protocol, unsigned long baud) {
     if (id > MAX_CHANNELS-1) {
-        PCCOMM::logToSerial("Channel ID too big - cannot create!"); 
+       PCCOMM::respondFail(CMD_CHANNEL_CREATE, ERR_INVALID_CHANNEL_ID, "Channel ID is too large");
         return;
     }
     if (channels[id] != nullptr) {
-        PCCOMM::logToSerial("Cannot create channel. Already in use");
+        PCCOMM::respondFail(CMD_CHANNEL_CREATE, ERR_CHANNEL_IN_USE, "Channel ID is already in use");
         return;
     }
     channels[id-1] = new channel(id, protocol, baud);
     active_channels++;
+    uint8_t res[1] = {0x00};
+    PCCOMM::respondOK(CMD_CHANNEL_CREATE, res, 1);
 }
 
 void destroy_channel(uint8_t id) {
     if (id > MAX_CHANNELS) { 
-        PCCOMM::logToSerial("Channel ID too big - cannot destroy!");
+        PCCOMM::respondFail(CMD_CHANNEL_DESTROY, ERR_INVALID_CHANNEL_ID, "Channel ID is too large");
         return;
     }
     if (channels[id-1] != nullptr) {
@@ -84,8 +88,10 @@ void destroy_channel(uint8_t id) {
         delete channels[id];
         channels[id-1] = nullptr;
         active_channels--;
+        uint8_t res[1] = {0x00};
+        PCCOMM::respondOK(CMD_CHANNEL_DESTROY, res, 1);
     } else {
-        PCCOMM::logToSerial("Cannot destroy channel. Does not exist");
+        PCCOMM::respondFail(CMD_CHANNEL_DESTROY, ERR_INVALID_CHANNEL_ID, "Channel ID already exists");
     }
 }
 

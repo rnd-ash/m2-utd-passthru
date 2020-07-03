@@ -59,9 +59,9 @@ namespace usbcomm {
 		connected = false;
 	}
 
-	const char* getLastError()
+	std::string getLastError()
 	{
-		return lastError.c_str();
+		return lastError;
 	}
 
 	bool internalSendMessage(PCMSG* msg) {
@@ -80,11 +80,15 @@ namespace usbcomm {
 		return true;
 	}
 
-	CMD_RES sendMsg(PCMSG* msg, bool getResponse) {
-		return sendMsg(msg, getResponse, 10); // Min wait is 10ms (Lets read thread do some processing)
+	bool sendMsg(PCMSG* msg) {
+		return sendMsgResp(msg, 0) == CMD_RES::CMD_OK;
 	}
 
-	CMD_RES sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs)
+	CMD_RES sendMsgResp(PCMSG* msg) {
+		return sendMsgResp(msg, 10); // Min wait is 10ms (Lets read thread do some processing)
+	}
+
+	CMD_RES sendMsgResp(PCMSG* msg, unsigned long maxWaitMs)
 	{
 		hasResult = false; // Set this here, so this is only True when the reader thread detects a response
 		// Send the message first
@@ -93,17 +97,18 @@ namespace usbcomm {
 			return CMD_RES::SEND_FAIL;
 		}
 		// Don't need a response, who cares
-		if (!getResponse) {
+		if (maxWaitMs == 0) {
 			return CMD_RES::CMD_OK;
 		}
 		// Wait for our response message
 		const clock_t begin_time = clock();
-		while (!maxWaitMs && clock() - begin_time / (CLOCKS_PER_SEC / 1000) <= maxWaitMs) {
+		while (!hasResult && clock() - begin_time / (CLOCKS_PER_SEC / 1000) <= maxWaitMs) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		}
 
 		// Either timer expired or we have a message before timer ended, figure out which
 		if (!hasResult) { // Still no result!? - Macchina timeout
+			LOGGER.logError("M_SEND_RESP", "Timeout waiting for Macchina to respond", lastError.c_str());
 			lastError = "Timeout requesting response";
 			return CMD_RES::CMD_TIMEOUT;
 		}

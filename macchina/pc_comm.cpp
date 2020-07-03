@@ -7,16 +7,12 @@ namespace PCCOMM {
 
     bool pollMessage(PCMSG *msg) {
         if(SerialUSB.available() > 0) { // Is there enough data in the buffer for
-            digitalWrite(DS7_BLUE, LOW);
 
             // Calculate how many bytes to read (min of avaliable bytes, or left to read to complete the data)
             uint16_t maxRead = min(SerialUSB.available(), sizeof(PCMSG)-read_count);
-            //uint16_t readBytes = 0;
-            //while (countRead < maxRead) {
-            //    tempbuf[read_count + readBytes] = (char)SerialUSB.read();
-            //}
-
+            digitalWrite(DS7_RED, LOW);
             SerialUSB.readBytes(&tempbuf[read_count], maxRead);
+            digitalWrite(DS7_RED, HIGH);
             read_count += maxRead;
 
             // Size OK now, full payload received
@@ -24,7 +20,6 @@ namespace PCCOMM {
                 memcpy(msg, &tempbuf, sizeof(PCMSG));
                 read_count = 0;
                 memset(tempbuf, 0x00, sizeof(tempbuf)); // Reset buffer
-                digitalWrite(DS7_BLUE, HIGH);
                 return true;
             }
         }

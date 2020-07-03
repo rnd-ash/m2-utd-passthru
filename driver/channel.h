@@ -1,6 +1,7 @@
 #pragma once
 #include <map>
 #include <queue>
+#include <tuple>
 #include "protocol_handler.h"
 #include "usbcomm.h"
 
@@ -23,26 +24,29 @@
 
 #define CHANNEL_MAX_FILTERS 10
 
+/// <summary>
+/// Struct for storing filter data
+/// </summary>
 struct handler_filter {
-	uint8_t id;
-	uint8_t type;
-	PASSTHRU_MSG mask;
-	PASSTHRU_MSG filter;
-	PASSTHRU_MSG flow;
+	uint8_t id; // Unique ID per channel
+	uint8_t type; // Type of filter
+	PASSTHRU_MSG mask; // Mask
+	PASSTHRU_MSG filter; // Filter
+	PASSTHRU_MSG flow; // Flow control CAN ID for ISO15765
 };
 
 class channel
 {
 public:
 	channel(unsigned long id);
-	bool setProtocol(unsigned long ProtocolID);
-	bool setFlags(unsigned long Flags);
-	bool setBaud(unsigned long Baudrate);
-	bool setMacchinaChannel(); // Sets the channel up on Macchina
+	int setProtocol(unsigned long ProtocolID);
+	int setFlags(unsigned long Flags);
+	int setBaud(unsigned long Baudrate);
+	int setMacchinaChannel(); // Sets the channel up on Macchina
 	int sendPayload(PASSTHRU_MSG* msg);
 	int setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID);
 	int remove_filter(unsigned long filterID);
-	void removeChannel();
+	int removeChannel();
 	void recvData(uint8_t* m, uint16_t len);
 	int requestData(PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout);
 private:
@@ -68,7 +72,7 @@ public:
 	int remove_filter(unsigned long channel_id,  unsigned long filterID);
 	int send_payload(unsigned long channel_id, PASSTHRU_MSG *pMsg, unsigned long* pNumMsgs, unsigned long timeout);
 	channel* getChannelWithID(unsigned long id);
-	unsigned long addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate);
+	std::tuple<int, unsigned long> addChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate);
 	int removeChannel(unsigned long channelid);
 	void recvPayload(PCMSG* m);
 	int requestChannelData(unsigned long ChannelID, PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout);

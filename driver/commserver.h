@@ -5,6 +5,6 @@ namespace commserver
 	void CloseCommThread();
 	bool CreateEvents();
 	void CloseHandles();
-	int WaitUntilReady(const char* deviceName, unsigned long timeout);
+	int WaitUntilReady(const char* deviceName, long timeout);
 };
 

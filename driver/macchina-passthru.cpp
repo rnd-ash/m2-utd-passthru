@@ -4,9 +4,8 @@
 #include "usbcomm.h"
 #include "globals.h"
 #include "channel.h"
+#include <tuple>
 
-
-char lastError[100];
 
 /*
 http://www.drewtech.com/support/passthru/open.html
@@ -37,13 +36,15 @@ DllExport PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsi
 	if (!usbcomm::isConnected()) {
 		return ERR_DEVICE_NOT_CONNECTED;
 	}
-	unsigned long id = channels.addChannel(ProtocolID, Flags, Baudrate);
-	if (id == 0) { // Error - copy it to our error buffer
-		strcpy_s(lastError, "No more avaliable channels");
-		return ERR_FAILED;
+
+	int res_code;
+	unsigned long chan_id;
+	std::tie(res_code, chan_id) = channels.addChannel(ProtocolID, Flags, Baudrate);
+	if (res_code != STATUS_NOERROR) { // Error creating a channel!
+		return res_code;
 	}
 	else { // OK! Copy ID back to app
-		*pChannelID = id;
+		*pChannelID = chan_id;
 		return STATUS_NOERROR;
 	}
 }
@@ -190,7 +191,7 @@ DllExport PassThruGetLastError(char* pErrorDescription) {
 		LOGGER.logError("DllExport", "Error description is a null pointer!?");
 		return ERR_NULL_PARAMETER;
 	}
-	memcpy(pErrorDescription, lastError, strlen(lastError));
+	memcpy(pErrorDescription, globals::getErrorString().c_str(), globals::getErrorString().size());
 	return STATUS_NOERROR;
 }
 

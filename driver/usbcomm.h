@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <string>
 
 // Command ID's for Misc
 #define CMD_LOG  0x01
@@ -22,32 +23,86 @@
 
 #define CMD_EXIT 0xFF // If sent, device will reset itself back into default state (Assume use app has quit)
 
+
+/// <summary>
+/// Structure that is transmitted to and from the Macchina
+/// </summary>
 struct PCMSG { // Total 512 bytes
     uint8_t cmd_id;
     uint16_t arg_size;
     uint8_t args[509];
 };
 
-
-enum CMD_RES {
-    // Send Failed (Macchina didn't even receive the request)
-    SEND_FAIL = 0,
+/// <summary>
+/// Enumeration for Macchina response codes
+/// </summary>
+enum class CMD_RES {
     // Send OK - And Macchina was OK processing request
-    CMD_OK = 1,
-    // Macchina failed when processing the request
-    CMD_FAIL = 2,
+    CMD_OK,
+    // Send Failed (Macchina didn't even receive the request)
+    SEND_FAIL,
+    // Macchina failed to process the command sent to it
+    CMD_FAIL,
     // Macchina did not respond in time
-    CMD_TIMEOUT = 3
+    CMD_TIMEOUT
 };
 
 namespace usbcomm
 {
+    /// <summary>
+    /// Polls for a message from Macchina
+    /// </summary>
+    /// <param name="msg">Pointer to a PCMSG that will be used if read is OK</param>
+    /// <returns>Boolean indicating if data was read or not</returns>
     bool pollMessage(PCMSG* msg);
-    CMD_RES sendMsg(PCMSG* msg, bool getResponse, unsigned long maxWaitMs);
-    CMD_RES sendMsg(PCMSG* msg, bool getResponse);
+
+    /// <summary>
+    /// Sends a message to Macchina, and doesn't poll for its response
+    /// </summary>
+    /// <param name="msg">Pointer to message to send</param>
+    /// <returns>Boolean indicating if Message was sent OK to Macchina</returns>
+    bool sendMsg(PCMSG* msg);
+
+    /// <summary>
+    /// Sends a message to Macchina, and tries to instantly get the response
+    /// </summary>
+    /// <param name="msg">Pointer to message to send</param>
+    /// <param name="getResponse">Boolean if response is needed or not</param>
+    /// <param name="maxWaitMs">Timeout in MS to read a response if a response is needed</param>
+    /// <returns></returns>
+    CMD_RES sendMsgResp(PCMSG* msg);
+
+    /// <summary>
+    /// Sends a message to Macchina, and attempts to read the response
+    /// </summary>
+    /// <param name="msg">Pointer to message to send</param>
+    /// <param name="maxWaitMs">Maximum time in MS to poll for the response</param>
+    /// <returns></returns>
+    CMD_RES sendMsgResp(PCMSG* msg, unsigned long maxWaitMs);
+
+    /// <summary>
+    /// Indicates if Macchina is currently connected or not
+    /// </summary>
+    /// <returns>Boolean indicating connection state</returns>
     bool isConnected();
+
+    /// <summary>
+    /// Attempts to open a Serial port connection to Macchina
+    /// </summary>
+    /// <returns>Boolean indicating if port was successfully opened</returns>
     bool OpenPort();
+
+    /// <summary>
+    /// Closes the port with the Macchina
+    /// </summary>
     void ClosePort();
-    const char* getLastError();
+
+    /// <summary>
+    /// Gets a string containing the last error message during message
+    /// transmission, in the event of CMD_RES::CMD_FAIL, the error message
+    /// originates from the Macchina itself
+    /// </summary>
+    /// <returns>String containing the last error message</returns>
+    std::string getLastError();
 };
 
