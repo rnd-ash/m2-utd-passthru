@@ -116,8 +116,8 @@ namespace usbcomm {
 		// Yay - We have a response from Macchina - process it
 		CMD_RES return_result = CMD_RES::CMD_FAIL;
 		resMutex.lock(); // Lock result mutex
-		memcpy(msg, &lastResult, sizeof(struct PCMSG)); // copy the response back
 		if (lastResult.cmd_id == msg->cmd_id) {
+			memcpy(msg, &lastResult, sizeof(struct PCMSG)); // copy the response back
 			if (lastResult.args[0] == CMD_RES_STATE_OK) {
 				LOGGER.logDebug("M_SEND_RESP", "Macchina responded OK!");
 				return_result = CMD_RES::CMD_OK; // Command OK!
@@ -130,6 +130,7 @@ namespace usbcomm {
 		}
 		else {
 			// WTF - Macchina responded with the WRONG CMD ID (Maybe its for a different command?)
+			LOGGER.logError("M_SEND_RESP", "Macchina responded with wrong CMD ID. Want: %02X, got %02X", msg->cmd_id, lastResult.cmd_id);
 			lastError = "Macchina responded with result for wrong command";
 			return_result = CMD_RES::CMD_TIMEOUT;
 		}
@@ -164,6 +165,7 @@ namespace usbcomm {
 				LOGGER.logDebug("M_READ", "Received a result message");
 				resMutex.lock();
 				memcpy(&lastResult, msg, sizeof(struct PCMSG));
+				lastResult.cmd_id &= 0x0F; // Remove the extra 0xA from the cmd
 				hasResult = true;
 				resMutex.unlock();
 				return false; // Return false so we don't process it later on this thread

@@ -118,38 +118,13 @@ namespace commserver {
 		return true;
 	}
 
-	void processPingResponse(PCMSG* msg) {
-		// Reponse args:
-		// 0 - Response OK!
-		// 1-4 = Batter voltage (mV)
-		// 5 - Current number of channels open
-		float bat;
-		memcpy(&bat, &msg->args[1], 4);
-		uint8_t channel_count = msg->args[5];
-		globals::setBatVoltage((unsigned long)(bat * 1000)); // Go back to mV (Macchina sends it in V)
-		LOGGER.logDebug("MACCHINA-PING", "PING - Battery voltage %f v, %d active channels", bat, channel_count);
-	}
-
-	void pingMacchina() {
-		PCMSG send = { CMD_PING };
-		switch (usbcomm::sendMsgResp(&send)) {
-		case CMD_RES::CMD_OK:
-			processPingResponse(&send);
-			break;
-		case CMD_RES::CMD_FAIL:
-			LOGGER.logError("MACCHINA-PING", "Failed to ping");
-			break;
-		// Ignore these (Macchina may be busy)
-		case CMD_RES::CMD_TIMEOUT:
-		case CMD_RES::SEND_FAIL:
-		default:
-			break;
-		}
-	}
-
 	DWORD WINAPI PingLoop() {
 		while (can_read && usbcomm::isConnected()) { // Stop pinging on disconnect
-			pingMacchina();
+			PCMSG send = { CMD_PING };
+			if (!usbcomm::sendMsg(&send)) {
+				LOGGER.logError("MACCHINA-PING", "Failed to ping, terminating connection");
+				can_read = false;
+			}
 			// Ping every second, so sleep here
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
@@ -162,11 +137,6 @@ namespace commserver {
 		while (can_read) {
 			// Message received from Macchina
 			if (usbcomm::pollMessage(&d)) {
-				// Ping - Process and go back to top of loop
-				if (d.cmd_id == CMD_PING) { // Its a ping message!
-					processPingResponse(&d);
-					continue;
-				}
 				// Incomming data for a channel!
 				if (d.cmd_id == CMD_CHANNEL_DATA) {
 					channels.recvPayload(&d);

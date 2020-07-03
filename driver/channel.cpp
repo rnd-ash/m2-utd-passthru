@@ -194,19 +194,22 @@ int channel::setMacchinaChannel()
         (uint8_t)this->id,
         this->macchinaProtocolID
     };
-    m.arg_size = 6;
     unsigned long baud = handler->getBaud();
     memcpy(&m.args[2], &baud, 4);
-    CMD_RES res = usbcomm::sendMsgResp(&m);
-    if (res == CMD_RES::CMD_FAIL) {
-        return m.args[1];
-    }
-    else if (res == CMD_RES::CMD_TIMEOUT) {
-        // Copy comm error msg
+    switch (usbcomm::sendMsgResp(&m))
+    {
+    case CMD_RES::CMD_OK:
+        return STATUS_NOERROR;
+    case CMD_RES::SEND_FAIL:
+        return ERR_DEVICE_NOT_CONNECTED;
+    case CMD_RES::CMD_TIMEOUT:
         globals::setErrorString(usbcomm::getLastError());
         return ERR_FAILED;
+    case CMD_RES::CMD_FAIL:
+        return m.args[1];
+    default:
+        return ERR_FAILED;
     }
-    return STATUS_NOERROR;
 }
 
 int channel::sendPayload(PASSTHRU_MSG* msg)

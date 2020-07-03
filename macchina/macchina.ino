@@ -55,11 +55,9 @@ float getVoltage() {
 
 unsigned long lastPing = 0;
 void doPing() {
-    float f = getVoltage();
-    uint8_t resp[5] = {0x00};
-    memcpy(&resp[0], &f, 4);
-    resp[4] = active_channels;
-    PCCOMM::respondOK(CMD_PING, resp, 5);
+    char buf[50];
+    sprintf(buf, "Voltage: %.2f, Active channels: %lu", getVoltage(), active_channels);
+    PCCOMM::logToSerial(buf);
 }
 
 
