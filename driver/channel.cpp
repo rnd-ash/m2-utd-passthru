@@ -202,6 +202,12 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
 
 int channel::setFilter(unsigned long FilterType, PASSTHRU_MSG* pMaskMsg, PASSTHRU_MSG* pPatternMsg, PASSTHRU_MSG* pFlowControlMsg, unsigned long* pFilterID)
 {
+    // Safety test - if filter is 0x03, then pFlowControlMsg must NOT be null as laid out in spec!
+    if (FilterType == FLOW_CONTROL_FILTER && pFlowControlMsg == nullptr) {
+        LOGGER.logError("CHAN_FILT", "Flow control filter wanted but pFlowControlMsg is null!");
+        return ERR_NULL_PARAMETER;
+    }
+
     // Check if we have avaliable channel filters
     for (int i = 0; i < CHANNEL_MAX_FILTERS; i++) {
         if (filters[i] == nullptr) { // Found a free slot, allocate it
