@@ -1,15 +1,16 @@
 # M2 under the dash passthru
 Passthru API (j2534) Driver for Macchina M2 Under the dash
 
-# What works (5%)
+# What works (25%)
 * Driver registration
 * Driver calling from userspace application
 * Logging
-
-# What doesn't work (95%)
+* ISO15765 Receiving multiple frames
+* ISO15765 Transmitting single frames
+# What doesn't work (75%)
 * ISO1941
 * CAN
-* ISO15765
+* ISO15765 Transmitting multi frames
 
 # Requirments
 * Works on Win7+ (x86 and x64) - Windows XP may work, but untested
