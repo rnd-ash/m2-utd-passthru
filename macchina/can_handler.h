@@ -14,7 +14,7 @@ public:
     canbus_handler(CANRaw* can, uint8_t led_pin);
     void setFilter(uint32_t canid, uint32_t mask, bool isExtended);
     void transmit(CAN_FRAME f);
-    bool read(CAN_FRAME f);
+    bool read(CAN_FRAME* f);
     void unlock();
     void lock(uint32_t baud);
     bool isFree();

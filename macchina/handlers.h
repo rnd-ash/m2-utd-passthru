@@ -31,6 +31,7 @@ public:
 private:
     handler_filter* filters[MAX_FILTERS_PER_HANDLER] = { nullptr };
 protected:
+    uint32_t getFilterResponseID(uint32_t rxID);
     uint8_t* buf;
     uint8_t buflen;
     virtual bool getData() = 0;
@@ -76,8 +77,11 @@ public:
     void transmit(uint8_t* args, uint16_t len);
     void add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp);
 private:
+    uint16_t bufWritePos = 0;
     CAN_FRAME lastFrame;
     canbus_handler *can_handle;
+    unsigned long nextSend = millis();
+    
 };
 
 #endif

@@ -65,7 +65,7 @@ void channel_group::recvPayload(PCMSG* m)
         LOGGER.logError("CHAN_RECV", "Cannot send data to requested channel %d (Channel does not exist)", m->args[0]);
     }
     else {
-        chan->recvData(&m->args[1], m->arg_size-1);
+        chan->recvData(&m->args[1], m->arg_size-1); // Arg 0 is the Channel ID
     }
 }
 
@@ -326,10 +326,15 @@ int channel::removeChannel()
 void channel::recvData(uint8_t* m, uint16_t len)
 {
     LOGGER.logDebug("CHAN_RECV","Incomming data for channel %d, size: %lu", this->id, len);
+    if (this->handler != nullptr) {
+        this->handler->recvData(m, len);
+    }
 }
 
 int channel::requestData(PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, unsigned long Timeout)
 {
-    // TODO - Read from buffer
-    return ERR_BUFFER_EMPTY; // Temporary return value
+    if (this->handler != nullptr) {
+        return this->handler->requestData(pMsg, pNumMsgs, Timeout);
+    }
+    return ERR_FAILED;
 }

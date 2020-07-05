@@ -14,6 +14,7 @@ private:
 	std::mutex mutex;
 	std::string argFormatToString(const char* fmt, va_list* args);
 public:
+	std::string bytesToString(uint8_t* bytes, unsigned long len);
 	void logInfo(std::string method, const char* fmt, ...);
 	void logWarn(std::string method, const char* fmt, ...);
 	void logError(std::string method, const char* fmt, ...);

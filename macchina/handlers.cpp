@@ -6,6 +6,15 @@ handler::handler(unsigned long baud) {
     this->buflen = 0;
 }
 
+uint32_t handler::getFilterResponseID(uint32_t rxID) {
+    for (int i = 0; i < MAX_FILTERS_PER_HANDLER; i++) {
+        if (filters[i]->mask & rxID == filters[i]->filter) {
+            return filters[i]->flow;
+        }
+    }
+    return 0xFFFFFFFF; // Invalid CID
+}
+
 void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
     if (id > MAX_FILTERS_PER_HANDLER-1) {
         PCCOMM::logToSerial("Cannot add filter - ID is out of range");
@@ -133,10 +142,82 @@ iso15765_handler::iso15765_handler(unsigned long baud) : handler(baud) {
 }
 
 bool iso15765_handler::getData() {
-    if (this->can_handle->read(lastFrame)) {
-        memcpy(&this->buf[0], &lastFrame.id, 4);
-        memcpy(&this->buf[4], lastFrame.data.bytes, lastFrame.length);
-        this->buflen = 4+lastFrame.length; 
+    if (this->can_handle->read(&lastFrame)) {
+        char buf2[100];
+        int start = sprintf(buf2, "READ FRMAE: %04X (%lu) ", lastFrame.id, lastFrame.length);
+        for (int i = 0; i < lastFrame.length; i++) {
+            start += sprintf(buf2+start, "%02X ", lastFrame.data.bytes[i]);
+        }
+        PCCOMM::logToSerial(buf2);
+        uint32_t tmp_id = 0xFFFFFFFF; // Only used for FC messages
+        uint8_t bytes_to_copy = 0; // Used for multi-frame Rx
+        switch(lastFrame.data.bytes[0] & 0xF0) {
+            case 0x00:
+                delete buf; // Wipe the old buffer (If any)
+                buf = new uint8_t[lastFrame.data.bytes[0] + 4]; // Data size is ID (4) + ISO Size
+                this->buflen = lastFrame.data.bytes[0] + 4;
+                // Copy ID
+                buf[0] = lastFrame.id >> 24;
+                buf[1] = lastFrame.id >> 16;
+                buf[2] = lastFrame.id >> 8;
+                buf[3] = lastFrame.id;
+                // Copy all the bytes in the payload section of the frame
+                memcpy(&buf[4], &lastFrame.data.bytes[1], lastFrame.data.bytes[0]);
+                return true;
+            case 0x10:
+                PCCOMM::logToSerial("Multi-Frame head!");
+                // Set buffer to real size
+                delete buf;
+                buf = new uint8_t[lastFrame.data.bytes[1] + 4];
+                this->bufWritePos = 10; // When finished, we will be at the 10th byte
+                this->buflen = lastFrame.data.bytes[1] + 4; // Set the full buffer size
+                buf[0] = lastFrame.id >> 24;
+                buf[1] = lastFrame.id >> 16;
+                buf[2] = lastFrame.id >> 8;
+                buf[3] = lastFrame.id;
+                // Copy all the bytes in the payload section of the frame
+                memcpy(&buf[4], &lastFrame.data.bytes[2], 6); // Copy the first 6 bytes
+                // Need to now send the FC frame
+                
+                // Find the correct Response ID in the filters:
+                tmp_id = getFilterResponseID(lastFrame.id);
+                if (tmp_id == 0xFFFFFFFF) {
+                    PCCOMM::logToSerial("Couldn't find any response ID's!");
+                    return false;
+                }
+                // modify lastFrame so its now the response message
+                lastFrame.id = tmp_id;
+                // TODO IOCTL based SP and BS
+                lastFrame.data.bytes[0] = 0x30; // Send Now plz ECU
+                lastFrame.data.bytes[1] = 0x08; // Send Now plz ECU
+                lastFrame.data.bytes[2] = 0x20; // Send Now plz ECU
+                lastFrame.data.bytes[3] = 0x00; // Send Now plz ECU
+                lastFrame.data.bytes[4] = 0x00; // Send Now plz ECU
+                lastFrame.data.bytes[5] = 0x00; // Send Now plz ECU
+                lastFrame.data.bytes[6] = 0x00; // Send Now plz ECU
+                lastFrame.data.bytes[7] = 0x00; // Send Now plz ECU
+                this->can_handle->transmit(lastFrame);
+                return false;
+            case 0x20:
+                PCCOMM::logToSerial("Multi-Frame body!");
+                // At most 7 bytes per frame
+                // buflen tells us how many bytes in total for ISO data
+                // bufWritePos tells us the current number of bytes written
+                bytes_to_copy = min(7, buflen-bufWritePos);
+                memcpy(&buf[bufWritePos], &lastFrame.data.bytes[1], bytes_to_copy);
+                bufWritePos += bytes_to_copy;
+                if (bufWritePos >= bytes_to_copy) {
+                    // Copy complete
+                    return true;
+                }
+                return false;
+            case 0x30:
+                PCCOMM::logToSerial("Cannot handle flow control Frame!");
+                return false;
+            default:
+                PCCOMM::logToSerial("Not a valid ISO Frame!");
+                return false;
+        }
         return true;
     }
     return false;
@@ -162,18 +243,16 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
         memcpy(&f.data.bytes[1], &args[4], len-4);
         this->can_handle->transmit(f);
     } else {
+        PCCOMM::logToSerial("TODO ISO Multi frame");
         // TODO Multi-frame packets
     }
 }
 
 void iso15765_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filter, uint32_t resp) {
     handler::add_filter(id, type, mask, filter, resp);
-    this->can_handle->setFilter(0x0, 0x0, false);
-    /*
     if (type == PROTOCOL_FILTER_BLOCK) { // Block filter, so allow everything, then we do bitwising in SW
         this->can_handle->setFilter(0x0, 0x0, false);
     } else { // Pass filter, so allow into mailboxes
         this->can_handle->setFilter(filter & 0x7FF, mask, false); // TODO Do Extended filtering
     }
-    */
 }

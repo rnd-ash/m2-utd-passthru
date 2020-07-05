@@ -41,10 +41,10 @@ void canbus_handler::transmit(CAN_FRAME f) {
     }
 }
  // Attempts to read an avaliable frame from one of the mailboxes
-bool canbus_handler::read(CAN_FRAME f) {
+bool canbus_handler::read(CAN_FRAME* f) {
     if (this->can->available() > 0) {
         digitalWrite(this->actLED, LOW);
-        this->can->read(f);
+        this->can->read(*f);
         return true;
     }
     return false;
