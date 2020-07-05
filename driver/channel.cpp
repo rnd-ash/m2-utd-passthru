@@ -190,13 +190,15 @@ int channel::setMacchinaChannel()
     // 2-6 - Baud rate of channel
     PCMSG m = {
         CMD_CHANNEL_CREATE,
+        0,
         6,
         (uint8_t)this->id,
         this->macchinaProtocolID
     };
+    PCMSG resp = {};
     unsigned long baud = handler->getBaud();
     memcpy(&m.args[2], &baud, 4);
-    switch (usbcomm::sendMsgResp(&m))
+    switch (usbcomm::sendMsgResp(&m, &resp))
     {
     case CMD_RES::CMD_OK:
         return STATUS_NOERROR;
@@ -301,8 +303,8 @@ int channel::removeChannel()
     };
     m.args[0] = this->id;
     // Ensure Macchina removed the channel
-
-    switch (usbcomm::sendMsgResp(&m))
+    PCMSG resp = {};
+    switch (usbcomm::sendMsgResp(&m, &resp))
     {
     case CMD_RES::CMD_OK:
         return STATUS_NOERROR;

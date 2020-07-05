@@ -8,8 +8,11 @@
 
 struct PCMSG { // Total 512 bytes
     uint8_t cmd_id;
+    uint8_t resp_code; // J2534 response code
     uint16_t arg_size;
-    uint8_t args[509];
+    uint8_t args[512];
+    uint8_t msg_id;
+    bool __require_response;
 };
 
 

@@ -1,10 +1,10 @@
 #include "pc_comm.h"
-
+#include "j2534_mini.h"
 
 namespace PCCOMM {
-    char tempbuf[512] = {0x00};
+    char tempbuf[520] = {0x00};
     uint16_t read_count = 0;
-
+    uint8_t lastID = 0x00;
     bool pollMessage(PCMSG *msg) {
         if(SerialUSB.available() > 0) { // Is there enough data in the buffer for
 
@@ -20,6 +20,7 @@ namespace PCCOMM {
                 memcpy(msg, &tempbuf, sizeof(PCMSG));
                 read_count = 0;
                 memset(tempbuf, 0x00, sizeof(tempbuf)); // Reset buffer
+                lastID = msg->msg_id; // Set this for response
                 return true;
             }
         }
@@ -33,11 +34,10 @@ namespace PCCOMM {
     }
 
     void logToSerial(char* msg) {
-        uint16_t len = max(strlen(msg), 508);
-        PCMSG res = {
-            CMD_LOG,
-            len
-        };
+        uint16_t len = max(strlen(msg), 512);
+        PCMSG res = {0x00};
+        res.cmd_id = CMD_LOG;
+        res.arg_size = len;
         memcpy(res.args, msg, len);
         sendMessage(&res);
     }
@@ -45,9 +45,10 @@ namespace PCCOMM {
     void respondOK(uint8_t cmd_id, uint8_t* resp_data, uint16_t resp_data_len) {
         PCMSG send = {
             cmd_id | CMD_RES_FROM_CMD,
-            resp_data_len+1,
-            CMD_RES_STATE_OK
+            STATUS_NOERROR,
+            resp_data_len+1
         };
+        send.msg_id = lastID;
         memcpy(&send.args[1], &resp_data, resp_data_len);
         sendMessage(&send);
     }
@@ -56,11 +57,11 @@ namespace PCCOMM {
         int len = strlen(msg);
         PCMSG send = {
             cmd_id | CMD_RES_FROM_CMD,
-            len+2,
-            CMD_RES_STATE_FAIL,
-            err_code
+            err_code,
+            len
         };
-        memcpy(&send.args[2], &msg, len);
+        send.msg_id = lastID;
+        memcpy(&send.args, &msg, len);
         sendMessage(&send);
     }
 };

@@ -2,6 +2,9 @@
 
 #include <stdint.h>
 #include <string>
+#include "j2534_v0404.h"
+
+#define MAX_WAIT_TIME_MS 2000
 
 // Command ID's for Misc
 #define CMD_LOG  0x01
@@ -18,8 +21,6 @@
 
 // Command responses (From macchina)
 #define CMD_RES_FROM_CMD       0xA0 // This gets put onto the first nibble of a CMD Id if its the Macchina responding from it 
-#define CMD_RES_STATE_OK       0x10 // Command sent to Macchina was OK - Args contains response data if necessary
-#define CMD_RES_STATE_FAIL     0x20 // Command send to Macchina failed, args contains error message
 
 #define CMD_EXIT 0xFF // If sent, device will reset itself back into default state (Assume use app has quit)
 
@@ -29,8 +30,11 @@
 /// </summary>
 struct PCMSG { // Total 512 bytes
     uint8_t cmd_id;
+    uint8_t resp_code; // J2534 response code
     uint16_t arg_size;
-    uint8_t args[509];
+    uint8_t args[512];
+    uint8_t msg_id;
+    bool __require_response;
 };
 
 /// <summary>
@@ -64,21 +68,13 @@ namespace usbcomm
     bool sendMsg(PCMSG* msg);
 
     /// <summary>
-    /// Sends a message to Macchina, and tries to instantly get the response
-    /// </summary>
-    /// <param name="msg">Pointer to message to send</param>
-    /// <param name="getResponse">Boolean if response is needed or not</param>
-    /// <param name="maxWaitMs">Timeout in MS to read a response if a response is needed</param>
-    /// <returns></returns>
-    CMD_RES sendMsgResp(PCMSG* msg);
-
-    /// <summary>
-    /// Sends a message to Macchina, and attempts to read the response
+    /// Sends a message to Macchina, and attempts to read the response.
+    /// This function will return CMD_TIMEOUT if a response is not seen after 2 seconds
     /// </summary>
     /// <param name="msg">Pointer to message to send</param>
     /// <param name="maxWaitMs">Maximum time in MS to poll for the response</param>
     /// <returns></returns>
-    CMD_RES sendMsgResp(PCMSG* msg, unsigned long maxWaitMs);
+    CMD_RES sendMsgResp(PCMSG* send, PCMSG* resp);
 
     /// <summary>
     /// Indicates if Macchina is currently connected or not

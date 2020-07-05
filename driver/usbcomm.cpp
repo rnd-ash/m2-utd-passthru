@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "usbcomm.h"
 #include <mutex>
+#include <map>
 #include "Logger.h"
 
 namespace usbcomm {
@@ -10,10 +11,11 @@ namespace usbcomm {
 	COMSTAT com;
 	DWORD errors;
 	std::string lastError = "";
+	
 
-	// For thread-safe command result processing
-	bool hasResult = false;
-	PCMSG lastResult = { 0x00 };
+
+	uint8_t msg_id = 0x01;
+	std::map<uint8_t, PCMSG> results;
 	std::mutex resMutex;
 
 	bool OpenPort() {
@@ -64,7 +66,8 @@ namespace usbcomm {
 		return lastError;
 	}
 
-	bool internalSendMessage(PCMSG* msg) {
+	bool internalSendMsg(PCMSG* msg, bool responseRequired) {
+		msg->__require_response = responseRequired; // Just for sanity sake
 		DWORD written = 0;
 		mutex.lock();
 		if (!WriteFile(handler, msg, sizeof(struct PCMSG), &written, NULL)) {
@@ -80,64 +83,56 @@ namespace usbcomm {
 		return true;
 	}
 
+	bool mapHasResult(uint8_t wantID) {
+		return results.find(wantID) != results.end();
+	}
+
 	bool sendMsg(PCMSG* msg) {
-		return sendMsgResp(msg, 0) == CMD_RES::CMD_OK;
+		return internalSendMsg(msg, false);
 	}
 
-	CMD_RES sendMsgResp(PCMSG* msg) {
-		return sendMsgResp(msg, 10); // Min wait is 10ms (Lets read thread do some processing)
-	}
-
-	CMD_RES sendMsgResp(PCMSG* msg, unsigned long maxWaitMs)
+	CMD_RES sendMsgResp(PCMSG* msg, PCMSG* resp)
 	{
-		hasResult = false; // Set this here, so this is only True when the reader thread detects a response
+		resMutex.lock();
+		results.erase(msg_id); // Erase any old message that was in this ID's slot
+		uint8_t want_id = msg_id; // Set the target ID to the msg_id
+		msg_id++; // Incriment the next id for future sent message
+		msg->msg_id = want_id; // Set it in the message so Macchina knows it has to respond with same ID
+		LOGGER.logDebug("M_SEND_RESP", "Sending msg to Macchina. MSG ID: %02X", msg->msg_id);
+		resMutex.unlock();
 		// Send the message first
-		if (!internalSendMessage(msg)) {
+		if (!internalSendMsg(msg, true)) {
 			lastError = "Could not send command to Macchina";
 			return CMD_RES::SEND_FAIL;
 		}
-		// Don't need a response, who cares
-		if (maxWaitMs == 0) {
-			return CMD_RES::CMD_OK;
-		}
 		// Wait for our response message
 		const clock_t begin_time = clock();
-		while (!hasResult && clock() - begin_time / (CLOCKS_PER_SEC / 1000) <= maxWaitMs) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		while (!mapHasResult(want_id) && clock() - begin_time / (CLOCKS_PER_SEC / 1000) <= MAX_WAIT_TIME_MS) {
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
 
 		// Either timer expired or we have a message before timer ended, figure out which
-		if (!hasResult) { // Still no result!? - Macchina timeout
+		if (!mapHasResult(want_id)) { // Still no result!? - Macchinas probably frozen (again!)
 			LOGGER.logError("M_SEND_RESP", "Timeout waiting for Macchina to respond", lastError.c_str());
 			lastError = "Timeout requesting response";
 			return CMD_RES::CMD_TIMEOUT;
 		}
 
-		// Yay - We have a response from Macchina - process it
-		CMD_RES return_result = CMD_RES::CMD_FAIL;
-		resMutex.lock(); // Lock result mutex
-		if (lastResult.cmd_id == msg->cmd_id) {
-			memcpy(msg, &lastResult, sizeof(struct PCMSG)); // copy the response back
-			if (lastResult.args[0] == CMD_RES_STATE_OK) {
-				LOGGER.logDebug("M_SEND_RESP", "Macchina responded OK!");
-				return_result = CMD_RES::CMD_OK; // Command OK!
-			}
-			else if (lastResult.args[0] == CMD_RES_STATE_FAIL) { // Oh no! Command failed
-				lastError.assign(lastResult.args[2], lastResult.arg_size-2); // String starts at pos 2 in the result // 0 - Result, 1 - Result code
-				LOGGER.logError("M_SEND_RESP", "Macchina failed to process request. Message: '%s'", lastError.c_str());
-				return_result = CMD_RES::CMD_FAIL;
-			}
-		}
-		else {
-			// WTF - Macchina responded with the WRONG CMD ID (Maybe its for a different command?)
-			LOGGER.logError("M_SEND_RESP", "Macchina responded with wrong CMD ID. Want: %02X, got %02X", msg->cmd_id, lastResult.cmd_id);
-			lastError = "Macchina responded with result for wrong command";
-			return_result = CMD_RES::CMD_TIMEOUT;
-		}
-		resMutex.unlock(); // Unlock result mutex
+		resMutex.lock(); // Lock damn result mutex so poller thread can't touch the results map whilst im doing memcpy (This caused 8+ hours of pain...!)
+		PCMSG p = results.at(want_id);
+		memcpy(&resp, &p, sizeof(struct PCMSG)); // Copies the found message to msg pointer
+		results.erase(want_id); // We can now remove the message in the results map
+		resMutex.unlock(); // Unlock this piece of shit....Not optimal but multithreading is making me loosing my sanity here
 
-		// Response found! - Query it
-		return return_result;
+		if (resp->resp_code == STATUS_NOERROR) { // Macchina happily responded to the request sent
+			LOGGER.logDebug("M_SEND_RESP", "Macchina responded OK!");
+			return CMD_RES::CMD_OK;
+		}
+		else { // FFS. Something happened on Macchina, report the error (Args are the error string)
+			lastError.assign((char*)msg->args, msg->arg_size);
+			LOGGER.logDebug("M_SEND_RESP", "Macchina Failed to process request. Error: '%s'", lastError);
+			return CMD_RES::CMD_FAIL;
+		}
 	}
 
 
@@ -162,11 +157,11 @@ namespace usbcomm {
 			}
 			// Its a response message for a command sent on another thread!
 			else if ((msg->cmd_id & 0xF0) == CMD_RES_FROM_CMD) {
-				LOGGER.logDebug("M_READ", "Received a result message");
+				LOGGER.logDebug("M_READ", "Received a result message - ID %02X, Code: %02X", msg->msg_id, msg->resp_code);
 				resMutex.lock();
-				memcpy(&lastResult, msg, sizeof(struct PCMSG));
-				lastResult.cmd_id &= 0x0F; // Remove the extra 0xA from the cmd
-				hasResult = true;
+				PCMSG tmp = {0x00};
+				memcpy(&tmp, msg, sizeof(struct PCMSG));
+				results.emplace(msg->msg_id, tmp);
 				resMutex.unlock();
 				return false; // Return false so we don't process it later on this thread
 			}
