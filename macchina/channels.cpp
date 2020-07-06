@@ -8,7 +8,7 @@ channel::channel(uint8_t id, uint8_t protocol, unsigned long baudRate) {
         this->protocol_handler = new can_handler(baudRate);
         break;
     case PROTOCOL_ISO15765:
-        this->protocol_handler = new iso15765_handler(baudRate);
+        this->protocol_handler = new iso15765_handler(baudRate, this->id);
         break;
     case PROTOCOL_ISO9141:
         this->protocol_handler = new iso9141_handler(baudRate);

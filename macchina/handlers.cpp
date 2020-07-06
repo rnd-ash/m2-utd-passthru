@@ -125,8 +125,9 @@ void iso9141_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32
 
 // ISO 15765 stuff (Big CAN Payloads)
 
-iso15765_handler::iso15765_handler(unsigned long baud) : handler(baud) {
-    this->buf = new uint8_t[12]; // Max (4 bytes for ID, 8 for DLC)
+iso15765_handler::iso15765_handler(unsigned long baud, uint8_t id) : handler(baud) {
+    this->buf = new uint8_t[1]; // Temporary (Will get destroyed as soon as we read a message)
+    this->channel_id = id;
     PCCOMM::logToSerial("Setting up ISO15765 Handler");
     if (ch0.isFree()) {
         ch0.lock(baud);
@@ -166,6 +167,8 @@ bool iso15765_handler::getData() {
                 return true;
             case 0x10:
                 PCCOMM::logToSerial("Multi-Frame head!");
+                // First frame indication Tx back to driver
+                this->sendFF(lastFrame.id);
                 // Set buffer to real size
                 delete buf;
                 buf = new uint8_t[lastFrame.data.bytes[1] + 4];
@@ -188,14 +191,14 @@ bool iso15765_handler::getData() {
                 // modify lastFrame so its now the response message
                 lastFrame.id = tmp_id;
                 // TODO IOCTL based SP and BS
-                lastFrame.data.bytes[0] = 0x30; // Send Now plz ECU
-                lastFrame.data.bytes[1] = 0x08; // Send Now plz ECU
-                lastFrame.data.bytes[2] = 0x20; // Send Now plz ECU
-                lastFrame.data.bytes[3] = 0x00; // Send Now plz ECU
-                lastFrame.data.bytes[4] = 0x00; // Send Now plz ECU
-                lastFrame.data.bytes[5] = 0x00; // Send Now plz ECU
-                lastFrame.data.bytes[6] = 0x00; // Send Now plz ECU
-                lastFrame.data.bytes[7] = 0x00; // Send Now plz ECU
+                lastFrame.data.bytes[0] = 0x30; // Tell ECU its clear to send!
+                lastFrame.data.bytes[1] = 0x08; // Block size
+                lastFrame.data.bytes[2] = 0x20; // Min seperation time in ms
+                lastFrame.data.bytes[3] = 0x00;
+                lastFrame.data.bytes[4] = 0x00;
+                lastFrame.data.bytes[5] = 0x00;
+                lastFrame.data.bytes[6] = 0x00;
+                lastFrame.data.bytes[7] = 0x00;
                 this->can_handle->transmit(lastFrame);
                 return false;
             case 0x20:
@@ -255,4 +258,17 @@ void iso15765_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint3
     } else { // Pass filter, so allow into mailboxes
         this->can_handle->setFilter(filter & 0x7FF, mask, false); // TODO Do Extended filtering
     }
+}
+
+void iso15765_handler::sendFF(uint32_t canid) {
+    PCMSG tx = {0x00};
+    tx.cmd_id = CMD_CHANNEL_DATA;
+    tx.args[0] = this->channel_id;
+    tx.args[1] = ISO15765_FF_INDICATOR; // As this is never true in a CAN Frame, it can be used as a flag
+    tx.args[2] = canid >> 24;
+    tx.args[3] = canid >> 16;
+    tx.args[4] = canid >> 8;
+    tx.args[5] = canid;
+    tx.arg_size = 6;
+    PCCOMM::sendMessage(&tx);
 }

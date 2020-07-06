@@ -64,11 +64,22 @@ void iso15765_handler::recvData(uint8_t* m, uint16_t len)
 {
 	// Now convert the data packet into a PASSTHRU_MSG
 	PASSTHRU_MSG rx = { 0x00 };
-	// Add the message to the queue
-	rx.DataSize = len;
-	rx.ProtocolID = ISO15765;
-	memcpy(&rx.Data, m, len);
-	this->msg_queue.push(rx);
+	if (m[0] == 0xFF) { // Special indicator saying its a FIRST FF Indication
+		LOGGER.logDebug("ISO15765", "First frame indication!");
+		rx.DataSize = 4;
+		rx.ProtocolID = ISO15765;
+		rx.RxStatus = ISO15765_FIRST_FRAME; // Set this!
+		memcpy(&rx.Data, &m[1], 4);
+		this->msg_queue.push(rx);
+	}
+	else {
+		LOGGER.logDebug("ISO15765", "Normal payload!");
+		// Add the message to the queue
+		rx.DataSize = len;
+		rx.ProtocolID = ISO15765;
+		memcpy(&rx.Data, m, len);
+		this->msg_queue.push(rx);
+	}
 }
 
 can_handler::can_handler(unsigned long channelID) : protocol_handler(channelID)
