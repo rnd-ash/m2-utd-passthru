@@ -146,6 +146,7 @@ void iso9141_handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32
 // ISO 15765 stuff (Big CAN Payloads)
 
 iso15765_handler::iso15765_handler(unsigned long baud, uint8_t id) : handler(baud) {
+    this->tx_buffer = new uint8_t[1];
     this->buf = new uint8_t[1]; // Temporary (Will get destroyed as soon as we read a message)
     this->channel_id = id;
     PCCOMM::logToSerial("Setting up ISO15765 Handler");
@@ -160,9 +161,13 @@ iso15765_handler::iso15765_handler(unsigned long baud, uint8_t id) : handler(bau
         return;
     }
     this->lastFrame = CAN_FRAME{};
+    this->tx_frame = CAN_FRAME{};
 }
 
 bool iso15765_handler::getData() {
+    if (this->clearToSend && this->isSending) {
+        this->send_buffer(); // We need to check if we can send out packets!
+    }
     if (this->can_handle->read(&lastFrame)) {
         char buf2[100];
         int start = sprintf(buf2, "READ FRMAE: %04X (%lu) ", lastFrame.id, lastFrame.length);
@@ -170,7 +175,6 @@ bool iso15765_handler::getData() {
             start += sprintf(buf2+start, "%02X ", lastFrame.data.bytes[i]);
         }
         PCCOMM::logToSerial(buf2);
-        uint32_t tmp_id = 0xFFFFFFFF; // Only used for FC messages
         uint8_t bytes_to_copy = 0; // Used for multi-frame Rx
         switch(lastFrame.data.bytes[0] & 0xF0) {
             case 0x00:
@@ -201,25 +205,7 @@ bool iso15765_handler::getData() {
                 // Copy all the bytes in the payload section of the frame
                 memcpy(&buf[4], &lastFrame.data.bytes[2], 6); // Copy the first 6 bytes
                 // Need to now send the FC frame
-                
-                // Find the correct Response ID in the filters:
-                tmp_id = getFilterResponseID(lastFrame.id);
-                if (tmp_id == 0xFFFFFFFF) {
-                    PCCOMM::logToSerial("Couldn't find any response ID's!");
-                    return false;
-                }
-                // modify lastFrame so its now the response message
-                lastFrame.id = tmp_id;
-                // TODO IOCTL based SP and BS
-                lastFrame.data.bytes[0] = 0x30; // Tell ECU its clear to send!
-                lastFrame.data.bytes[1] = 0x08; // Block size
-                lastFrame.data.bytes[2] = 0x20; // Min seperation time in ms
-                lastFrame.data.bytes[3] = 0x00;
-                lastFrame.data.bytes[4] = 0x00;
-                lastFrame.data.bytes[5] = 0x00;
-                lastFrame.data.bytes[6] = 0x00;
-                lastFrame.data.bytes[7] = 0x00;
-                this->can_handle->transmit(lastFrame);
+                this->send_flow_control();
                 return false;
             case 0x20:
                 PCCOMM::logToSerial("Multi-Frame body!");
@@ -229,19 +215,28 @@ bool iso15765_handler::getData() {
                 bytes_to_copy = min(7, buflen-bufWritePos);
                 memcpy(&buf[bufWritePos], &lastFrame.data.bytes[1], bytes_to_copy);
                 bufWritePos += bytes_to_copy;
-                if (bufWritePos >= bytes_to_copy) {
+                if (bufWritePos >= buflen && isReceiving) {
                     // Copy complete
+                    isReceiving = false;
                     return true;
+                }
+                rx_count++;
+                // Now need to send a new FC frame!
+                if (this->rx_count == MAX_BLOCK_SIZE_RX) {
+                    this->send_flow_control();
                 }
                 return false;
             case 0x30:
-                PCCOMM::logToSerial("Cannot handle flow control Frame!");
+                // Handle flow control!
+                this->tx_sep = lastFrame.data.bytes[2];
+                this->tx_bs = lastFrame.data.bytes[3];
+                this->clearToSend = true;
+                this->tx_last_send_time = millis();
                 return false;
             default:
                 PCCOMM::logToSerial("Not a valid ISO Frame!");
                 return false;
         }
-        return true;
     }
     return false;
 }
@@ -266,8 +261,24 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
         memcpy(&f.data.bytes[1], &args[4], len-4);
         this->can_handle->transmit(f);
     } else {
-        PCCOMM::logToSerial("TODO ISO Multi frame");
-        // TODO Multi-frame packets
+        PCCOMM::logToSerial("Sending multiple frames!");
+        delete this->tx_buffer;
+        this->tx_frame.length = 8; // Always for 15765
+        this->tx_frame.id = args[0] << 24 | args[1] << 16 | args[2] << 8 | args[3]; // Set once
+        this->tx_frame.priority = 4;
+        this->tx_frame.rtr = false;
+        this->isSending = true;
+        this->clearToSend = false;
+        this->tx_buffer = new uint8_t[len-4]; // -4 as the CID now lives in the tx_frame
+        this->tx_buffer_size = len-4;
+        memcpy(&tx_buffer[0], &args[4], len-4); // Copy the full payload buffer
+        this->tx_frame.data.bytes[0] = 0x10;
+        this->tx_frame.data.bytes[1] = tx_buffer_size; // Total number of bytes
+        memcpy(&tx_frame.data.bytes[2], &tx_buffer[0], 6); // Copy first 6 bytes
+        this->tx_buffer_pos = 6;
+        this->tx_packet_id = 0x21; // Set the PCI of the next packet
+        this->tx_packets_sent = 0;
+        this->can_handle->transmit(tx_frame);
     }
 }
 
@@ -291,4 +302,65 @@ void iso15765_handler::sendFF(uint32_t canid) {
     tx.args[5] = canid;
     tx.arg_size = 6;
     PCCOMM::sendMessage(&tx);
+}
+
+// Handles sending of 0x2x multi frame payload packets
+void iso15765_handler::send_buffer() {
+    // Check if too early to send buffer. Min call is used so we don't flood CAN
+    if (millis() - tx_last_send_time < min(1, tx_sep)) {
+        return;
+    }
+    PCCOMM::logToSerial("Sending multi frame segment");
+    tx_frame.data.bytes[0] = tx_packet_id;
+    tx_packet_id++;
+    int bytes_left = this->tx_buffer_size - this->tx_buffer_pos;
+    memcpy(&tx_frame.data.bytes[1], &this->tx_buffer[tx_buffer_pos], max(7, bytes_left));
+    this->can_handle->transmit(tx_frame);
+    this->tx_buffer_pos+=7;
+    this->tx_packets_sent++;
+    if (this->tx_packets_sent == tx_bs) { // Need a clear to send packet again
+        PCCOMM::logToSerial("Await new FC Frame");
+        this->tx_packets_sent = 0;
+        clearToSend = false;
+    }
+    // Reset PCI if it overflows
+    if (this->tx_packet_id == 0x30) {
+        this->tx_packet_id = 0x20;
+    }
+    if (tx_buffer_pos >= this->tx_buffer_size) {
+        this->isSending = false;
+        this->clearToSend = false;
+        PCMSG tx = {0x00};
+        tx.cmd_id = CMD_CHANNEL_DATA;
+        tx.args[0] = this->channel_id;
+        tx.args[1] = ISO15765_SD_INDICATOR;
+        tx.arg_size = 2;
+        PCCOMM::sendMessage(&tx);
+        return;
+    }
+    tx_last_send_time = millis();
+}
+
+void iso15765_handler::send_flow_control() {
+    this->rx_count = 0; // Reset
+    // Find the correct Response ID in the filters:
+    uint32_t tmp_id = getFilterResponseID(lastFrame.id);
+    if (tmp_id == 0xFFFFFFFF) {
+        PCCOMM::logToSerial("Couldn't find any response ID's!");
+        return;
+    }
+    PCCOMM::logToSerial("Sending Flow control");
+    // modify lastFrame so its now the response message
+    lastFrame.id = tmp_id;
+    // TODO IOCTL based SP and BS
+    lastFrame.data.bytes[0] = 0x30; // Tell ECU its clear to send!
+    lastFrame.data.bytes[1] = MAX_BLOCK_SIZE_RX; // Block size
+    lastFrame.data.bytes[2] = 0x20; // Min seperation time in ms
+    lastFrame.data.bytes[3] = 0x00;
+    lastFrame.data.bytes[4] = 0x00;
+    lastFrame.data.bytes[5] = 0x00;
+    lastFrame.data.bytes[6] = 0x00;
+    lastFrame.data.bytes[7] = 0x00;
+    isReceiving = true;
+    this->can_handle->transmit(lastFrame);
 }

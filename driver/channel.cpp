@@ -240,6 +240,7 @@ int channel::sendPayload(PASSTHRU_MSG* msg)
     if (msg->DataSize > 508) {
         return ERR_BUFFER_FULL;
     }
+    LOGGER.logDebug("HANDLER", "WRITE --> Contents: %s", LOGGER.bytesToString(msg->Data, msg->DataSize).c_str());
     PCMSG m = { 0x00 };
     m.arg_size = msg->DataSize + 1; // +1 for channel ID
     m.cmd_id = CMD_CHANNEL_DATA; // Sending data
@@ -345,7 +346,6 @@ int channel::removeChannel()
 
 void channel::recvData(uint8_t* m, uint16_t len)
 {
-    LOGGER.logDebug("CHAN_RECV","Incomming data for channel %d, size: %lu", this->id, len);
     if (this->handler != nullptr) {
         this->handler->recvData(m, len);
     }

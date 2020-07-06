@@ -53,10 +53,9 @@ int protocol_handler::requestData(PASSTHRU_MSG* pMsg, unsigned long* pNumMsgs, u
 	// TODO handle timeout
 	unsigned long max_read = min(*pNumMsgs, msg_queue.size()); // Calculate how many messages we can read at most
 	*pNumMsgs = max_read; // Let the req application know how many messages we read
-	LOGGER.logDebug("HANDLER", "Sending %lu messages from Channel %lu back to app", max_read, this->channelid);
 	for (unsigned long i = 0; i < max_read; i++) {
 		memcpy(&pMsg[i], &this->msg_queue.front(), sizeof(PASSTHRU_MSG));
-		LOGGER.logDebug("HANDLER", "Contents: %s", LOGGER.bytesToString(pMsg[i].Data, pMsg[i].DataSize).c_str());
+		LOGGER.logDebug("HANDLER", "READ <-- Contents: %s", LOGGER.bytesToString(pMsg[i].Data, pMsg[i].DataSize).c_str());
 		// Now pop the queue
 		this->msg_queue.pop();
 	}
@@ -88,15 +87,24 @@ void iso15765_handler::recvData(uint8_t* m, uint16_t len)
 	if (m[0] == 0xFF) { // Special indicator saying its a FIRST FF Indication
 		LOGGER.logDebug("ISO15765", "First frame indication!");
 		rx.DataSize = 4;
-		rx.RxStatus = ISO15765_FIRST_FRAME; // Set this!
+		rx.RxStatus = ISO15765_FIRST_FRAME; // Set this! Need to know ECU has started to send data
 		memcpy(&rx.Data, &m[1], 4);
 		this->msg_queue.push(rx);
 	}
-	else {
+	else if (m[0] == 0xAA && len == 1) { // Speical message saying Tx Complete
+		LOGGER.logInfo("ISO15765", "MFP Tx Complete!");
+		rx.DataSize = 0;
+		rx.RxStatus = TX_MSG_TYPE; // Transfer complete
+		this->msg_queue.push(rx);
+	} else {
 		LOGGER.logDebug("ISO15765", "Normal payload!");
 		// Add the message to the queue
 		rx.DataSize = len;
-		rx.RxStatus = TX_MSG_TYPE; // Set this
+
+		// What the hell. Below breaks Vediamo/DAS, even though its part of the spec!?
+		//if (len > 11) { // Only set TX_MSG_TYPE if it was a multi frame payload
+		//	rx.RxStatus = TX_MSG_TYPE;
+		//}
 		memcpy(&rx.Data, m, len);
 		this->msg_queue.push(rx);
 	}

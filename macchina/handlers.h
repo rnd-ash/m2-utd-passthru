@@ -27,6 +27,7 @@
 
 #define MAX_FILTERS_PER_HANDLER 10
 #define ISO15765_FF_INDICATOR 0xFF // ISO15765 First frame indication
+#define ISO15765_SD_INDICATOR 0xAA // ISO15765 Indication of complete transmission
 
 struct handler_filter {
     uint8_t id;
@@ -87,6 +88,9 @@ private:
     can_handler *can_handle;
 };
 
+
+#define MAX_BLOCK_SIZE_RX 8
+
 /**
  * ISO15765 handler for Large CAN payloads
  */
@@ -103,8 +107,23 @@ private:
     uint16_t bufWritePos = 0;
     CAN_FRAME lastFrame;
     canbus_handler *can_handle;
-    unsigned long nextSend = millis();
-    
+
+    // For ISO 15765 Sending
+    unsigned long tx_last_send_time = millis();
+    bool isSending = false;
+    bool clearToSend = false;
+    bool isReceiving = false;
+    uint8_t rx_count; // When asking to generate a new FC message
+    uint8_t* tx_buffer;
+    uint8_t  tx_buffer_size;
+    uint8_t  tx_buffer_pos;
+    uint8_t  tx_packet_id;
+    uint8_t  tx_packets_sent;
+    uint8_t  tx_bs; // Block size
+    uint8_t  tx_sep; // Seperation time
+    CAN_FRAME tx_frame;
+    void send_buffer();
+    void send_flow_control();
 };
 
 #endif

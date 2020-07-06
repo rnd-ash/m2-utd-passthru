@@ -39,6 +39,7 @@ channel::channel(uint8_t id, uint8_t protocol, unsigned long baudRate) {
 }
 
 void channel::transmit_data(uint16_t len, uint8_t* data) {
+    
     this->protocol_handler->transmit(data, len);
 }
 

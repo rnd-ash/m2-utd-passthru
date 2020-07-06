@@ -118,7 +118,6 @@ namespace usbcomm {
 		uint8_t want_id = msg_id; // Set the target ID to the msg_id
 		msg_id++; // Incriment the next id for future sent message
 		msg->msg_id = want_id; // Set it in the message so Macchina knows it has to respond with same ID
-		LOGGER.logDebug("M_SEND_RESP", "Sending msg to Macchina. MSG ID: %02X", msg->msg_id);
 		resMutex.unlock();
 		// Send the message first
 		if (!internalSendMsg(msg, true)) {
@@ -145,7 +144,6 @@ namespace usbcomm {
 		resMutex.unlock(); // Unlock this piece of shit....Not optimal but multithreading is making me loosing my sanity here
 
 		if (resp->resp_code == STATUS_NOERROR) { // Macchina happily responded to the request sent
-			LOGGER.logDebug("M_SEND_RESP", "Macchina responded OK!");
 			return CMD_RES::CMD_OK;
 		}
 		else { // FFS. Something happened on Macchina, report the error (Args are the error string)
@@ -177,7 +175,7 @@ namespace usbcomm {
 			}
 			// Its a response message for a command sent on another thread!
 			else if ((msg->cmd_id & 0xF0) == CMD_RES_FROM_CMD) {
-				LOGGER.logDebug("M_READ", "Received a result message - ID %02X, Code: %02X", msg->msg_id, msg->resp_code);
+				//LOGGER.logDebug("M_READ", "Received a result message - ID %02X, Code: %02X", msg->msg_id, msg->resp_code);
 				resMutex.lock();
 				PCMSG tmp = {0x00};
 				memcpy(&tmp, msg, sizeof(struct PCMSG));

@@ -54,7 +54,10 @@ void canbus_handler::transmit(CAN_FRAME f) {
     }
     digitalWrite(this->actLED, LOW);
     char buf[100] = {0x00};
-    sprintf(buf, "CAN Sending CAN Frame. ID: 0x%04X - DLC: %d", f.id, f.length);
+    int start = sprintf(buf, "SEND FRMAE: %04X (%lu) ", f.id, f.length);
+    for (int i = 0; i < f.length; i++) {
+        start += sprintf(buf+start, "%02X ", f.data.bytes[i]);
+    }
     PCCOMM::logToSerial(buf);
     if (!this->can->sendFrame(f)) {
         PCCOMM::logToSerial("Error sending CAN Frame!");
