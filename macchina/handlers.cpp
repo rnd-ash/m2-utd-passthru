@@ -52,7 +52,7 @@ void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filte
         resp
     };
     char buf[100] = {0x00};
-    sprintf(buf, "Setting filter. Type: %02X, Mask: %04X, Filter: %04X, Resp: %04X", type, mask, filter, resp);
+    sprintf(buf, "Setting filter. Type: %02X, Mask: %04X, Filter: %04X, Resp: %04X", type, mask, filter, resp, len);
     PCCOMM::logToSerial(buf);
 }
 
