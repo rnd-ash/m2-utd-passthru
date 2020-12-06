@@ -1,5 +1,5 @@
 {
     "board": "macchina:sam:m2beta",
-    "port": "COM12",
+    "port": "/dev/ttyACM0",
     "sketch": "macchina.ino"
 }

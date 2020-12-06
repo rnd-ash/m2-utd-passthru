@@ -52,7 +52,7 @@ void handler::add_filter(uint8_t id, uint8_t type, uint32_t mask, uint32_t filte
         resp
     };
     char buf[100] = {0x00};
-    sprintf(buf, "Setting filter. Type: %02X, Mask: %04X, Filter: %04X, Resp: %04X", type, mask, filter, resp, len);
+    sprintf(buf, "Setting filter. Type: %02X, Mask: %04X, Filter: %04X, Resp: %04X", type, mask, filter, resp, 100);
     PCCOMM::logToSerial(buf);
 }
 
@@ -251,7 +251,7 @@ void iso15765_handler::transmit(uint8_t* args, uint16_t len) {
         return;
     }
     if (len-4 < 7) {
-        CAN_FRAME f = {0x00};
+        CAN_FRAME f;
         f.extended = false; // TODO Allow for extended frames
         f.id = args[0] << 24 | args[1] << 16 | args[2] << 8 | args[3];
         f.data.byte[0] = len-4;

@@ -39,7 +39,7 @@ bool canbus_handler::isFree() {
 // Set a filter on one of the Rx mailboxes
 void canbus_handler::setFilter(uint32_t canid, uint32_t mask, bool isExtended) {
     char buf[40] = {0x00};
-    sprintf(buf, "Setting Rx Filters - MASK: 0x%04X, Filter: 0x%04X", mask, canid, len);
+    sprintf(buf, "Setting Rx Filters - MASK: 0x%04X, Filter: 0x%04X", mask, canid, 40);
     PCCOMM::logToSerial(buf);
     for (int i = 0; i < 7; i++) {
         this->can->setRXFilter(canid, mask, isExtended);

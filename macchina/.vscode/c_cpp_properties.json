@@ -1,23 +1,24 @@
 {
     "configurations": [
         {
-            "name": "Win32",
-            "includePath": [
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\**",
-                "${workspaceRoot}/**",
-                "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\**",
-                "C:\\Program Files (x86)\\Arduino\\hardware\\tools\\**",
-                "C:\\Program Files (x86)\\Arduino\\libraries\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\variants\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\libraries\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\macchina\\hardware\\sam\\0.3.13\\**",
-                "C:\\Users\\Ashcon\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\sam\\1.6.12\\**"
-            ],
-            "forcedInclude": [],
-            "intelliSenseMode": "msvc-x64",
-            "compilerPath": "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.26.28801/bin/Hostx64/x64/cl.exe",
+            "name": "Linux",
             "cStandard": "c11",
             "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64",
+            "includePath": [
+                "/home/ashcon/.arduino15/packages/arduino/tools/**",
+                "/home/ashcon/Arduino/libraries/**",
+                "${workspaceRoot}/**",
+                "/home/ashcon/.arduino15/packages/arduino/hardware/**",
+                "/home/ashcon/.arduino15/packages/arduino/hardware/sam/1.6.12/**",
+                "/home/ashcon/.arduino15/packages/macchina/hardware/sam/0.3.13/libraries/**",
+                "/home/ashcon/.arduino15/packages/macchina/hardware/sam/0.3.13/variants/**",
+                "/home/ashcon/.arduino15/packages/macchina/hardware/sam/0.3.13/**",
+                "/usr/bin/libraries/**"
+            ],
+            "forcedInclude": [
+                "/home/ashcon/.arduino15/packages/macchina/hardware/sam/0.3.13/variants/m2/variant.h"
+            ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
