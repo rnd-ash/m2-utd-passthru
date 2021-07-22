@@ -1,3 +1,10 @@
+# IMPORTANT THIS IS DEPRECATED
+
+Instead, please use this driver:
+github.com/rnd-ash/macchina-J2534/
+
+Which has support for both Macchina's M2 and A0 adapters
+
 # M2 under the dash passthru
 Passthru API (j2534) Driver for Macchina M2 Under the dash
 
